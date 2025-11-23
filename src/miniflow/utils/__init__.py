@@ -1,11 +1,13 @@
 from .handlers import (
     EnvironmentHandler,
     ConfigurationHandler,
-    RedisClient
+    RedisClient,
+    MailTrapClient
 )
 
 __all__ = [
     "EnvironmentHandler",
     "ConfigurationHandler",
-    "RedisClient"
+    "RedisClient",
+    "MailTrapClient"
 ]
