@@ -26,8 +26,8 @@ class User(BaseModel):
         CheckConstraint('length(username) <= 50', name='_username_max_length'),
         
         # İndeksler
-        Index('idx_user_email_active', 'email', 'is_active'),
-        Index('idx_user_username_active', 'username', 'is_active'),
+        Index('idx_user_email', 'email'),
+        Index('idx_user_username', 'username'),
         Index('idx_user_email_verification_token', 'email_verification_token'),
         Index('idx_user_reset_token', 'password_reset_token'),
     )
@@ -57,8 +57,6 @@ class User(BaseModel):
         comment="Telefon doğrulama zamanı")
 
     # Hesap Durumu
-    is_active = Column(Boolean, default=True, nullable=False, index=True,
-       comment="Hesap aktif ve giriş yapabilir")
     is_verified = Column(Boolean, default=False, nullable=False, index=True,
         comment="E-posta doğrulanmış")
     is_locked = Column(Boolean, default=False, nullable=False,
@@ -277,3 +275,8 @@ class User(BaseModel):
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         
         return expires_at > datetime.now(timezone.utc)
+
+    def is_account_locked(self) -> bool:
+        if self.locked_until.tzinfo is None:
+            self.locked_until = self.locked_until.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) < self.locked_until
