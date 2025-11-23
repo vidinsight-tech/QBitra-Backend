@@ -14,27 +14,31 @@ class EnvironmentHandler:
         if cls._initialized:
             return
 
-        print(f"[ENVIRONMENT] Environment file is loading.")
         project_root = Path(__file__).resolve().parents[4]
         cls._env_path = project_root / env_file_name
 
         if not cls._env_path.exists():
             raise ResourceNotFoundError(
-                resource_name="Environment file can't found", 
+                resource_name="Environment file", 
                 resource_id=str(cls._env_path)
-                )
+            )
 
         load_dotenv(cls._env_path)
 
-        success, _ = cls.test()
+        success, test_value = cls.test()
         if not success:
             raise InternalError(
+                component_name="environment_handler",
                 message="Environment validation test failed. Environment file may be corrupted or missing required variables.",
-                component_name="environment_handler"
+                error_details={
+                    "test_key": "TEST_KEY",
+                    "expected_value": "ThisKeyIsForConfigTest",
+                    "actual_value": test_value,
+                    "env_file_path": str(cls._env_path)
+                }
             )
         
         cls._initialized = True
-        print(f"[ENVIRONMENT] Environment file loaded successfully: {cls._env_path}")
 
     @staticmethod
     def test(test_key="TEST_KEY"):

@@ -15,7 +15,6 @@ class ConfigurationHandler:
         if cls._initialized:
             return
 
-        print(f"[CONFIG] Config file is loading.")
         EnvironmentHandler.load_env()
 
         project_root = Path(__file__).resolve().parents[4]
@@ -23,21 +22,27 @@ class ConfigurationHandler:
 
         if not cls._config_dir.exists():
             raise ResourceNotFoundError(
-                resource_name="Config file can't found",
+                resource_name="Configuration directory",
                 resource_id=str(cls._config_dir)
             )
 
         cls._load_configuration_file()
 
-        success, _ = cls.test()
+        success, test_value = cls.test()
         if not success:
             raise InternalError(
+                component_name="configuration_handler",
                 message="Configuration validation test failed. Configuration file may be corrupted or invalid.",
-                component_name="configuration_handler"
+                error_details={
+                    "test_section": "Test",
+                    "test_key": "value",
+                    "expected_value": "ThisKeyIsForConfigTest",
+                    "actual_value": test_value,
+                    "config_directory": str(cls._config_dir)
+                }
             )
 
         cls._initialized = True
-        print(f"[CONFIG] Configuration files loaded successfully from: {cls._config_dir}")
 
     @classmethod
     def _load_configuration_file(cls):
@@ -46,8 +51,12 @@ class ConfigurationHandler:
 
         if not app_type:
             raise InternalError(
+                component_name="configuration_handler",
                 message="APP_ENV environment variable is not set or is empty.",
-                component_name="configuration_handler"
+                error_details={
+                    "required_variable": "APP_ENV",
+                    "available_environments": ["dev", "prod", "local", "test"]
+                }
             )
 
         app_type = app_type.lower()
@@ -61,8 +70,13 @@ class ConfigurationHandler:
             ini_file = cls._config_dir / "test.ini"
         else:
             raise InternalError(
+                component_name="configuration_handler",
                 message=f"Invalid APP_ENV value: '{app_type}'. Expected one of: dev, prod, local, test",
-                component_name="configuration_handler"
+                error_details={
+                    "provided_value": app_type,
+                    "expected_values": ["dev", "prod", "local", "test"],
+                    "config_directory": str(cls._config_dir)
+                }
             )
 
         if not ini_file.exists():

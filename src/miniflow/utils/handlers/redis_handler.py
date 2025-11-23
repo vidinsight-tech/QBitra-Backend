@@ -26,16 +26,28 @@ class RedisClient:
             cls._client.ping()
 
             cls._initialized = True
-            print("[REDIS] Redis connection initiliazed successfully")
         except redis.ConnectionError as e:
+            # Get Redis connection details for error reporting
+            host = ConfigurationHandler.get('Redis', 'host', fallback='localhost')
+            port = ConfigurationHandler.get_int('Redis', 'port', fallback=6379)
             raise InternalError(
+                component_name="redis_client",
                 message=f"Failed to connect to Redis server: {str(e)}",
-                component_name="redis_client"
+                error_details={
+                    "host": host,
+                    "port": port,
+                    "error_type": type(e).__name__,
+                    "original_error": str(e)
+                }
             )
         except Exception as e:
             raise InternalError(
+                component_name="redis_client",
                 message=f"Unexpected error during Redis initialization: {str(e)}",
-                component_name="redis_client"
+                error_details={
+                    "error_type": type(e).__name__,
+                    "original_error": str(e)
+                }
             )
         
     @classmethod
@@ -69,7 +81,6 @@ class RedisClient:
         if cls._pool:
             cls._pool.disconnect()
             cls._initialized = False
-            print("[REDIS] Redis connection closed successfully")
 
     @classmethod
     def set(cls, key: str, value: Any, ex: Optional[int] = None) -> bool:

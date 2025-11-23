@@ -1,4 +1,4 @@
-from handlers import (
+from .handlers import (
     EnvironmentHandler,
     ConfigurationHandler,
     RedisClient
