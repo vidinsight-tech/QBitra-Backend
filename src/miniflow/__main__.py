@@ -11,6 +11,9 @@ from src.miniflow.core.exceptions import InvalidInputError, ResourceNotFoundErro
 from src.miniflow.database import get_sqlite_config, get_postgresql_config, get_mysql_config
 from src.miniflow.database import DatabaseManager
 from src.miniflow.utils.helpers.file_helper import create_resources_folder
+from src.miniflow.services.info_services.user_roles_service import UserRolesService
+from src.miniflow.services.info_services.workspace_plans_service import WorkspacePlansService
+from src.miniflow.services.info_services.agreement_service import AgreementService
 
 
 class MiniFlow:
@@ -24,6 +27,11 @@ class MiniFlow:
 
         # Çalışma Durumu
         self.is_running = False
+
+        # Seed Services (lazy initialization)
+        self._user_role_service: Optional[UserRolesService] = None
+        self._workspace_plan_service: Optional[WorkspacePlansService] = None
+        self._agreement_service: Optional[AgreementService] = None
 
         # Başlatma işlemleri
         self._startup_initialization()
@@ -317,6 +325,37 @@ class MiniFlow:
         print(f"❌ {error_type}".center(70))
         print("=" * 70)
 
+    def _initialize_seed_services(self):
+        """Initialize seed services"""
+        if not self._user_role_service:
+            self._user_role_service = UserRolesService()
+        if not self._workspace_plan_service:
+            self._workspace_plan_service = WorkspacePlansService()
+        if not self._agreement_service:
+            self._agreement_service = AgreementService()
+
+    def seed_initial_data(self):
+        """Başlangıç verilerini ekle (roller, planlar ve sözleşmeler)"""
+        if not self._db_manager or not self._db_manager.is_initialized:
+            raise RuntimeError("Database Manager is not initialized. Call _setup_database() first.")
+        
+        print("[VERİ] Başlangıç verileri ekleniyor...")
+        
+        # Initialize services
+        self._initialize_seed_services()
+        
+        # Kullanıcı rolleri
+        role_stats = self._user_role_service.seed_role(roles_data=USER_ROLES_SEED)
+        print(f"[VERİ] Kullanıcı rolleri: {role_stats['created']} eklendi, {role_stats['skipped']} atlandı")
+        
+        # Çalışma alanı planları
+        plan_stats = self._workspace_plan_service.seed_plan(plans_data=WORKSPACE_PLANS_SEED)
+        print(f"[VERİ] Çalışma planları: {plan_stats['created']} eklendi, {plan_stats['skipped']} atlandı")
+        
+        # Sözleşmeler (GDPR compliance)
+        agreement_stats = self._agreement_service.seed_agreement(agreements_data=AGREEMENT_SEEDS)
+        print(f"[VERİ] Sözleşmeler: {agreement_stats['created']} eklendi, {agreement_stats['updated']} güncellendi, {agreement_stats['skipped']} atlandı")
+
 
 if __name__ == "__main__":
     """Main entry point for MiniFlow application."""
@@ -329,6 +368,9 @@ if __name__ == "__main__":
         
         # Initialize Database
         app._setup_database()
+        
+        # Seed initial data
+        app.seed_initial_data()
         
         print("\n" + "=" * 70)
         print("MINIFLOW ENTERPRISE - READY".center(70))
