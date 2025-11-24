@@ -10,6 +10,7 @@ from src.miniflow.utils import EnvironmentHandler, ConfigurationHandler, RedisCl
 from src.miniflow.core.exceptions import InvalidInputError, ResourceNotFoundError, InternalError
 from src.miniflow.database import get_sqlite_config, get_postgresql_config, get_mysql_config
 from src.miniflow.database import DatabaseManager
+from src.miniflow.utils.helpers.file_helper import create_resources_folder
 
 
 class MiniFlow:
@@ -66,19 +67,25 @@ class MiniFlow:
 
         try:
             # 1. Load environment variables
-            print("[1/3] Loading environment variables...", end=" ", flush=True)
+            print("[1/4] Loading environment variables...", end=" ", flush=True)
             EnvironmentHandler.load_env()
             print("✓ OK")
             
             # 2. Load configuration files
-            print("[2/3] Loading configuration files...", end=" ", flush=True)
+            print("[2/4] Loading configuration files...", end=" ", flush=True)
             ConfigurationHandler.load_config()
             print("✓ OK")
             
             # 3. Initialize Redis connection
-            print("[3/3] Initializing Redis connection...", end=" ", flush=True)
+            print("[3/4] Initializing Redis connection...", end=" ", flush=True)
             RedisClient.initialize()
             print("✓ OK")
+
+            # 4. Files
+            print("[4/4] Initializing Redis connection...", end=" ", flush=True)
+            create_resources_folder()
+            print("✓ OK")
+
             
             print("\n" + "=" * 70)
             print("STARTUP INITIALIZATION COMPLETED SUCCESSFULLY".center(70))

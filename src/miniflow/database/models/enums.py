@@ -153,6 +153,15 @@ class DeviceType(str, Enum):
     UNKNOWN = "UNKNOWN"         # Cannot determine device type
 
 
+class PasswordChangeReason(str, Enum):
+    """Password change reason"""
+    VOLUNTARY = "VOLUNTARY"           # User voluntarily changed password
+    RESET = "RESET"                   # Password changed via reset
+    EXPIRED = "EXPIRED"               # Password expired and forced change
+    FORCED = "FORCED"                 # Admin forced password change
+    SECURITY_BREACH = "SECURITY_BREACH"  # Changed due to security breach
+
+
 # ============================================================================
 # RESOURCE ENUMS
 # ============================================================================
@@ -423,6 +432,7 @@ __all__ = [
     'LoginStatus',
     'LoginMethod',
     'DeviceType',
+    'PasswordChangeReason',
     
     # Resources
     'DatabaseType',
