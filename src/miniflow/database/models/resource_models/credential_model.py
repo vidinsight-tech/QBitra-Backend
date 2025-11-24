@@ -71,7 +71,7 @@ class Credential(BaseModel):
         comment="Credential adı (workspace içinde benzersiz)")
     credential_type = Column(Enum(CredentialType), nullable=False, index=True,
         comment="Credential tipi (API_KEY, OAUTH2, BASIC_AUTH, vb.)")
-    credential_provider = Column(Enum(CredentialProvider), nullable=True, index=True,
+    credential_provider = Column(String(50), nullable=True, index=True,
         comment="Credential provider (sadece OAuth2 için: GOOGLE, MICROSOFT, GITHUB)")
     description = Column(Text, nullable=True,
         comment="Credential açıklaması")

@@ -1,5 +1,5 @@
 from typing import Optional, List
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import Session
 
 from ..base_repository import BaseRepository
@@ -21,3 +21,11 @@ class WorkspaceRepository(BaseRepository[Workspace]):
         query = select(Workspace).where(Workspace.name == name)
         query = self._apply_soft_delete_filter(query, include_deleted)
         return session.execute(query).scalar_one_or_none()
+    
+    @BaseRepository._handle_db_exceptions
+    def _count_by_plan_id(self, session: Session, plan_id: str, include_deleted: bool = False) -> int:
+        """Count workspaces using this plan"""
+        query = select(func.count(Workspace.id)).where(Workspace.plan_id == plan_id)
+        query = self._apply_soft_delete_filter(query, include_deleted)
+        result = session.execute(query).scalar()
+        return result or 0

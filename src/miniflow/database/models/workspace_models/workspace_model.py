@@ -52,6 +52,8 @@ class Workspace(BaseModel):
         comment="Mevcut custom script sayısı")
 
     # Depolama ve execution limitleri
+    max_file_size_mb_per_workspace = Column(Integer, nullable=False,
+        comment="Dosya başına yükleme limiti")
     storage_limit_mb = Column(Integer, nullable=False,
         comment="Depolama limiti (MB)")
     current_storage_mb = Column(Float, default=0.0, nullable=False,

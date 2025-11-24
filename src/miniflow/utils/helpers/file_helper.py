@@ -1017,14 +1017,17 @@ def upload_custom_script(
     content: str,
     script_name: str,
     extension: str,
-    workspace_id: str
-) -> str:
+    workspace_id: str,
+    category: Optional[str] = None,
+    subcategory: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Upload custom script file with content.
-    Creates file at: resources/custom_scripts/{workspace_id}/{script_name}.{extension}
+    Creates file at: resources/custom_scripts/{workspace_id}/{category?}/{subcategory?}/{script_name}.{extension}
     
     Validates against CUSTOM SCRIPTS configuration:
     - allowed_script_extensions: Allowed script extensions
+    - allowed_script_mime_types: Allowed MIME types (optional)
     - max_script_size_mb: Maximum script size in MB
     - script_validation_enabled: Whether to validate script content
     
@@ -1033,12 +1036,19 @@ def upload_custom_script(
         script_name: Script name (without extension)
         extension: File extension (with or without dot, e.g., 'py' or '.py')
         workspace_id: Workspace ID
+        category: Optional category for organizing scripts (will be sanitized and added to path)
+        subcategory: Optional subcategory for organizing scripts (will be sanitized and added to path)
     
     Returns:
-        Final file path where script was saved
+        Dict[str, Any]: Script file information
+            - file_path: Final file path where script was saved (absolute path)
+            - file_size: File size in bytes
+            - mime_type: Detected MIME type
+            - extension: File extension (normalized)
+            - file_name: Final filename
     
     Raises:
-        InvalidInputError: If content is empty, invalid path, extension not allowed, size exceeded, or file system error
+        InvalidInputError: If content is empty, invalid path, extension not allowed, MIME type not allowed, size exceeded, or file system error
     """
     # Load configuration
     try:
@@ -1084,12 +1094,46 @@ def upload_custom_script(
     max_script_size_mb = ConfigurationHandler.get_int("CUSTOM SCRIPTS", "max_script_size_mb", fallback=1)
     max_script_size_bytes = max_script_size_mb * 1024 * 1024
     
-    content_size = len(content.encode('utf-8'))
+    content_bytes = content.encode('utf-8')
+    content_size = len(content_bytes)
     if content_size > max_script_size_bytes:
         raise InvalidInputError(
             field_name="content",
             message=f"Script size ({content_size / 1024 / 1024:.2f} MB) exceeds maximum allowed size ({max_script_size_mb} MB)"
         )
+    
+    # Detect MIME type from extension
+    mime_type_from_extension, _ = mimetypes.guess_type(f"file{extension}")
+    if not mime_type_from_extension:
+        # Default MIME types for common script extensions
+        mime_type_map = {
+            '.py': 'text/x-python',
+            '.js': 'application/javascript',
+            '.ts': 'application/typescript',
+            '.sh': 'application/x-sh',
+            '.bash': 'application/x-sh',
+            '.zsh': 'application/x-sh',
+            '.ps1': 'application/x-powershell',
+            '.rb': 'text/x-ruby',
+            '.php': 'text/x-php',
+            '.go': 'text/x-go',
+            '.java': 'text/x-java-source',
+            '.cpp': 'text/x-c++src',
+            '.c': 'text/x-csrc',
+        }
+        mime_type_from_extension = mime_type_map.get(extension_lower, 'text/plain')
+    
+    mime_type = mime_type_from_extension
+    
+    # Validate MIME type against configuration (if configured)
+    allowed_script_mime_types_list = ConfigurationHandler.get_list("CUSTOM SCRIPTS", "allowed_script_mime_types", fallback=[])
+    if allowed_script_mime_types_list:
+        allowed_script_mime_types = {mime.strip().lower() for mime in allowed_script_mime_types_list}
+        if mime_type.lower() not in allowed_script_mime_types:
+            raise InvalidInputError(
+                field_name="extension",
+                message=f"Script MIME type not allowed: {mime_type}. Allowed MIME types: {', '.join(allowed_script_mime_types)}"
+            )
     
     # Script validation (if enabled)
     script_validation_enabled = ConfigurationHandler.get_bool("CUSTOM SCRIPTS", "script_validation_enabled", fallback=True)
@@ -1134,6 +1178,16 @@ def upload_custom_script(
     # Get workspace custom script path (with path traversal protection)
     workspace_script_path = get_workspace_custom_script_path(workspace_id)
     ensure_directory(workspace_script_path)
+    
+    # Add category and subcategory to path if provided
+    if category:
+        safe_category = sanitize_filename(category)
+        workspace_script_path = os.path.join(workspace_script_path, safe_category)
+        ensure_directory(workspace_script_path)
+        if subcategory:
+            safe_subcategory = sanitize_filename(subcategory)
+            workspace_script_path = os.path.join(workspace_script_path, safe_subcategory)
+            ensure_directory(workspace_script_path)
     
     # Build full file path
     file_path_obj = Path(workspace_script_path) / filename
@@ -1218,30 +1272,50 @@ def upload_custom_script(
             message=f"File could not be saved: {str(e)}"
         )
     
-    return final_path_str
+    return {
+        "file_path": final_path_str,
+        "file_size": content_size,
+        "mime_type": mime_type,
+        "extension": extension_lower,
+        "file_name": filename
+    }
 
 
 def upload_global_script(
     content: str,
     script_name: str,
-    extension: str
-) -> str:
+    extension: str,
+    category: Optional[str] = None,
+    subcategory: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Upload global script file with content.
-    Creates file at: resources/global_scripts/{script_name}.{extension}
+    Creates file at: resources/global_scripts/{category?}/{subcategory?}/{script_name}.{extension}
     
     Global scripts are not workspace-specific and available to all workspaces.
+    
+    Validates against GLOBAL SCRIPTS configuration (if exists):
+    - allowed_script_extensions: Allowed script extensions (optional)
+    - allowed_script_mime_types: Allowed MIME types (optional)
+    - max_script_size_mb: Maximum script size in MB (optional)
     
     Args:
         content: Script content (string)
         script_name: Script name (without extension)
         extension: File extension (with or without dot, e.g., 'py' or '.py')
+        category: Optional category for organizing scripts (will be sanitized and added to path)
+        subcategory: Optional subcategory for organizing scripts (will be sanitized and added to path)
     
     Returns:
-        Final file path where script was saved
+        Dict[str, Any]: Script file information
+            - file_path: Final file path where script was saved (absolute path)
+            - file_size: File size in bytes
+            - mime_type: Detected MIME type
+            - extension: File extension (normalized)
+            - file_name: Final filename
     
     Raises:
-        InvalidInputError: If content is empty, invalid path, or file system error
+        InvalidInputError: If content is empty, invalid path, extension not allowed, MIME type not allowed, size exceeded, or file system error
     """
     if not content:
         raise InvalidInputError(
@@ -1261,9 +1335,75 @@ def upload_global_script(
             message="Extension cannot be empty"
         )
     
+    # Load configuration
+    try:
+        ConfigurationHandler.load_config()
+    except Exception:
+        pass  # Already loaded
+    
     # Normalize extension (ensure it starts with dot)
     if not extension.startswith('.'):
         extension = '.' + extension
+    
+    extension_lower = extension.lower()
+    
+    # Validate script extension against configuration (if configured)
+    allowed_script_extensions_list = ConfigurationHandler.get_list("GLOBAL SCRIPTS", "allowed_script_extensions", fallback=[])
+    if allowed_script_extensions_list:
+        allowed_script_extensions = {ext.strip().lower() for ext in allowed_script_extensions_list}
+        if extension_lower not in allowed_script_extensions:
+            raise InvalidInputError(
+                field_name="extension",
+                message=f"Script extension not allowed: {extension}. Allowed extensions: {', '.join(allowed_script_extensions)}"
+            )
+    
+    # Validate script size against configuration (if configured)
+    max_script_size_mb = ConfigurationHandler.get_int("GLOBAL SCRIPTS", "max_script_size_mb", fallback=None)
+    if max_script_size_mb:
+        max_script_size_bytes = max_script_size_mb * 1024 * 1024
+        content_bytes = content.encode('utf-8')
+        content_size = len(content_bytes)
+        if content_size > max_script_size_bytes:
+            raise InvalidInputError(
+                field_name="content",
+                message=f"Script size ({content_size / 1024 / 1024:.2f} MB) exceeds maximum allowed size ({max_script_size_mb} MB)"
+            )
+    else:
+        content_bytes = content.encode('utf-8')
+        content_size = len(content_bytes)
+    
+    # Detect MIME type from extension
+    mime_type_from_extension, _ = mimetypes.guess_type(f"file{extension}")
+    if not mime_type_from_extension:
+        # Default MIME types for common script extensions
+        mime_type_map = {
+            '.py': 'text/x-python',
+            '.js': 'application/javascript',
+            '.ts': 'application/typescript',
+            '.sh': 'application/x-sh',
+            '.bash': 'application/x-sh',
+            '.zsh': 'application/x-sh',
+            '.ps1': 'application/x-powershell',
+            '.rb': 'text/x-ruby',
+            '.php': 'text/x-php',
+            '.go': 'text/x-go',
+            '.java': 'text/x-java-source',
+            '.cpp': 'text/x-c++src',
+            '.c': 'text/x-csrc',
+        }
+        mime_type_from_extension = mime_type_map.get(extension_lower, 'text/plain')
+    
+    mime_type = mime_type_from_extension
+    
+    # Validate MIME type against configuration (if configured)
+    allowed_script_mime_types_list = ConfigurationHandler.get_list("GLOBAL SCRIPTS", "allowed_script_mime_types", fallback=[])
+    if allowed_script_mime_types_list:
+        allowed_script_mime_types = {mime.strip().lower() for mime in allowed_script_mime_types_list}
+        if mime_type.lower() not in allowed_script_mime_types:
+            raise InvalidInputError(
+                field_name="extension",
+                message=f"Script MIME type not allowed: {mime_type}. Allowed MIME types: {', '.join(allowed_script_mime_types)}"
+            )
     
     # Sanitize script name
     sanitized_script_name = sanitize_filename(script_name)
@@ -1288,6 +1428,16 @@ def upload_global_script(
     # Get global script path (not workspace-specific)
     global_script_path = get_global_script_path()
     ensure_directory(global_script_path)
+    
+    # Add category and subcategory to path if provided
+    if category:
+        safe_category = sanitize_filename(category)
+        global_script_path = os.path.join(global_script_path, safe_category)
+        ensure_directory(global_script_path)
+        if subcategory:
+            safe_subcategory = sanitize_filename(subcategory)
+            global_script_path = os.path.join(global_script_path, safe_subcategory)
+            ensure_directory(global_script_path)
     
     # Build full file path
     file_path_obj = Path(global_script_path) / filename
@@ -1372,4 +1522,10 @@ def upload_global_script(
             message=f"File could not be saved: {str(e)}"
         )
     
-    return final_path_str
+    return {
+        "file_path": final_path_str,
+        "file_size": content_size,
+        "mime_type": mime_type,
+        "extension": extension_lower,
+        "file_name": filename
+    }

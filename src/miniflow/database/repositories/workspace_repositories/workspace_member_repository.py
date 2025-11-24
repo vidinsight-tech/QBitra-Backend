@@ -1,5 +1,5 @@
 from typing import Optional, List
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import Session
 
 from ..base_repository import BaseRepository
@@ -26,4 +26,12 @@ class WorkspaceMemberRepository(BaseRepository[WorkspaceMember]):
     def _get_memberships_by_user_id(self, session: Session, user_id: str, include_deleted: bool = False) -> List[WorkspaceMember]:
         query = select(WorkspaceMember).where(WorkspaceMember.user_id == user_id, WorkspaceMember.role_name.lower() != "owner")
         query = self._apply_soft_delete_filter(query, include_deleted)
-        return list(session.execute(query).scalars().all()) 
+        return list(session.execute(query).scalars().all())
+    
+    @BaseRepository._handle_db_exceptions
+    def _count_by_role_id(self, session: Session, role_id: str, include_deleted: bool = False) -> int:
+        """Count workspace members using this role"""
+        query = select(func.count(WorkspaceMember.id)).where(WorkspaceMember.role_id == role_id)
+        query = self._apply_soft_delete_filter(query, include_deleted)
+        result = session.execute(query).scalar()
+        return result or 0 

@@ -120,6 +120,7 @@ class WorkspaceService:
             current_workflow_count=0,
             custom_script_limit=plan.max_custom_scripts_per_workspace,
             current_custom_script_count=0,
+            max_file_size_mb_per_workspace=plan.max_file_size_mb_per_workspace,
             storage_limit_mb=plan.storage_limit_mb_per_workspace,
             current_storage_mb=0,
             api_key_limit=plan.max_api_keys_per_workspace,
