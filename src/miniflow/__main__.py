@@ -572,8 +572,14 @@ class MiniFlow:
         """
         Exception handler'ları ekle (spesifikten genele).
         """
+        import warnings
         from fastapi.exceptions import RequestValidationError
         from starlette.exceptions import HTTPException as StarletteHTTPException
+        
+        # HTTP_422_UNPROCESSABLE_ENTITY deprecation warning'ini suppress et
+        # FastAPI'de henüz HTTP_422_UNPROCESSABLE_CONTENT mevcut değil
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*HTTP_422_UNPROCESSABLE_ENTITY.*")
         from src.miniflow.server.middleware.exception_handler import (
             app_exception_handler,
             validation_exception_handler,
@@ -679,8 +685,12 @@ class MiniFlow:
         
         host = self._config.get("Server", "host", "0.0.0.0")
         port = self._config.get_int("Server", "port", 8000)
-        reload = self._config.get_bool("Server", "reload", False)
+        reload_config = self._config.get_bool("Server", "reload", False)
         workers = self._config.get_int("Server", "workers", 1)
+        
+        # Uvicorn reload için app objesi yerine import string kullanılmalı
+        # Reload=True olduğunda import string kullan, reload=False olduğunda app objesi kullan
+        reload = reload_config and self.is_development
         
         print("\n" + "-" * 70)
         print("WEB SERVER STARTING".center(70))
@@ -696,14 +706,26 @@ class MiniFlow:
         
         self.is_running = True
         
-        uvicorn.run(
-            app,
-            host=host,
-            port=port,
-            reload=reload,
-            workers=workers if not reload else 1,
-            access_log=self.is_development,
-        )
+        if reload:
+            # Reload için import string kullan
+            uvicorn.run(
+                "src.miniflow.app:app",
+                host=host,
+                port=port,
+                reload=True,
+                workers=1,  # Reload ile workers kullanılamaz
+                access_log=self.is_development,
+            )
+        else:
+            # Reload olmadan app objesi kullan
+            uvicorn.run(
+                app,
+                host=host,
+                port=port,
+                reload=False,
+                workers=workers,
+                access_log=self.is_development,
+            )
 
 
 # ============================================================================

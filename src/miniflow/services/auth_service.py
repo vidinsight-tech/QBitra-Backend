@@ -82,7 +82,7 @@ class AuthenticationService:
         user = User(
             username=username,
             email=email,
-            password=hashed_password,
+            hashed_password=hashed_password,
             password_changed_at=password_changed_at,
             name=name,
             surname=surname,
@@ -257,7 +257,7 @@ class AuthenticationService:
                 created_by=user.id
             )
 
-            if user.verification_token_is_valid(user.email_verification_token):
+            if user.is_email_verification_token_valid(user.email_verification_token):
                 raise BusinessRuleViolationError(
                     rule_name="email_not_verified",
                     rule_detail="email not verified",

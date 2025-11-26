@@ -25,7 +25,7 @@ is_production = EnvironmentHandler.get("APP_ENV", "dev").lower() == "prod"
 # ---------------------------------------------------------
 ERROR_CODE_TO_HTTP_STATUS = {
     # Validation Errors
-    ErrorCode.VALIDATION_ERROR: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    ErrorCode.VALIDATION_ERROR: status.HTTP_422_UNPROCESSABLE_ENTITY,  # Note: HTTP_422_UNPROCESSABLE_CONTENT not yet available in FastAPI
     ErrorCode.INVALID_INPUT: status.HTTP_400_BAD_REQUEST,
     ErrorCode.RESOURCE_NOT_FOUND: status.HTTP_404_NOT_FOUND,
     ErrorCode.RESOURCE_ALREADY_EXISTS: status.HTTP_409_CONFLICT,
