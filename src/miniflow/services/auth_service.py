@@ -176,6 +176,87 @@ class AuthenticationService:
         }
 
     @with_transaction(manager=None)
+    def request_verification_email(
+        self,
+        session,
+        *,
+        email: str,
+    ) -> Dict[str, Any]:
+        """
+        Email adresine göre kullanıcıyı bulur ve yeni verification token gönderir.
+        Güvenlik için: Email enumeration saldırılarına karşı koruma sağlar.
+        - Kullanıcı bulunamazsa: Başarılı response döner ama email gönderilmez
+        - Kullanıcı zaten verified ise: Bilgilendirme email'i gönderilir
+        - Kullanıcı bulunur ve verified değilse: Yeni token oluşturulur ve verification email gönderilir
+        """
+        user = self._user_repo._get_by_email(session, email=email, include_deleted=False)
+        
+        # Güvenlik: Email enumeration saldırılarına karşı koruma
+        # Kullanıcı bulunamazsa veya zaten verified ise, başarılı response döner ama email gönderilmez
+        if not user:
+            # Kullanıcı bulunamadı - güvenlik için başarılı response döner
+            return {
+                "email": email,
+                "message": "If an account with this email exists and is not verified, a verification email has been sent."
+            }
+        
+        # Kullanıcı zaten verified ise bilgilendirme email'i gönder
+        if user.is_verified:
+            self._mailtrap_client.send_notification_email(
+                to_email=email,
+                template_variables={
+                    "company_info_name": "Test Company Info Name",
+                    "name": user.name or "User",
+                    "company_info_address": "Test Company Info Address",
+                    "company_info_city": "Test Company Info City",
+                    "company_info_zip_code": "Test Company Info Zip Code",
+                    "company_info_country": "Test Company Info Country"
+                }
+            )
+            
+            return {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_verified": user.is_verified,
+                "message": "This email address is already verified. An information email has been sent."
+            }
+        
+        # Kullanıcı bulundu ve verified değil - yeni token oluştur ve email gönder
+        # Eski token'ı temizle ve yeni token oluştur
+        user.email_verification_token = None
+        user.email_verification_token_expires_at = None
+        verification_token = user.generate_email_verification_token()
+        
+        # Token'ın oluşturulduğundan emin ol
+        if not verification_token or not user.email_verification_token:
+            raise BusinessRuleViolationError(
+                rule_name="verification_token_creation_failed",
+                rule_detail="verification token creation failed",
+                message="Failed to create email verification token. Please try again."
+            )
+
+        self._mailtrap_client.send_verification_email(
+            to_email=email,
+            template_variables={
+                "company_info_name": "Test Company Info Name",
+                "name": user.name or "User",
+                "verification_token": verification_token,
+                "company_info_address": "Test Company Info Address",
+                "company_info_city": "Test Company Info City",
+                "company_info_zip_code": "Test Company Info Zip Code",
+                "company_info_country": "Test Company Info Country"
+            }
+        )
+
+        return {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "is_verified": user.is_verified,
+        }
+
+    @with_transaction(manager=None)
     def verify_email(
         self,
         session,
@@ -551,7 +632,7 @@ class AuthenticationService:
         if not auth_session:
             return {
                 "valid": False,
-                "error": "Invalid access token",
+                "error": "Access token session not found. The session may have been revoked or expired. Please log in again",
             }
 
         if auth_session.is_revoked:
@@ -576,6 +657,20 @@ class AuthenticationService:
             return {
                 "valid": False,
                 "error": "Access token has expired",
+            }
+
+        # Email verification kontrolü - kullanıcı email'i verify etmemişse session geçersiz
+        user = self._user_repo._get_by_id(session, record_id=auth_session.user_id, include_deleted=False)
+        if not user:
+            return {
+                "valid": False,
+                "error": "User not found",
+            }
+        
+        if not user.is_verified:
+            return {
+                "valid": False,
+                "error": "Email address has not been verified. Please verify your email address before using this service",
             }
 
         return {

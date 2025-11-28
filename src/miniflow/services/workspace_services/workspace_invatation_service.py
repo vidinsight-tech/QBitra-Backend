@@ -312,11 +312,21 @@ class WorkspaceInvatationService:
         invitation.accept_invitation()
         session.add(invitation)
         
+        # Get role to retrieve role_name
+        role = self._user_roles_repo._get_by_id(session, record_id=invitation.role_id, include_deleted=False)
+        if not role:
+            raise BusinessRuleViolationError(
+                rule_name="role_not_found",
+                rule_detail="role not found",
+                message="Role not found",
+            )
+        
         member = self._workspace_member_repo._create(
             session,
             workspace_id=invitation.workspace_id,
             user_id=accepted_by,
             role_id=invitation.role_id,
+            role_name=role.name,
             invited_by=invitation.invited_by,
             joined_at=datetime.now(timezone.utc),
             last_accessed_at=datetime.now(timezone.utc),

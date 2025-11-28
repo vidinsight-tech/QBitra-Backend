@@ -77,16 +77,17 @@ async def authenticate_user(
     
     access_token = credential_response.credentials
 
-    # Optimizasyon: Eğer state'de zaten user_id varsa ve token aynıysa, tekrar validation yapma
+    # Optimizasyon: Eğer state'de zaten user_id varsa ve token aynıysa, 
+    # JWT validation'ı atla ama database session kontrolünü yap
     # (Aynı request içinde birden fazla dependency kullanımı için performans iyileştirmesi)
-    if hasattr(request.state, 'user_id') and hasattr(request.state, '_validated_token'):
-        if request.state._validated_token == access_token:
-            return AuthUser(
-                user_id=request.state.user_id,
-                access_token=request.state._validated_token
-            )
+    skip_jwt_validation = (
+        hasattr(request.state, 'user_id') and 
+        hasattr(request.state, '_validated_token') and
+        request.state._validated_token == access_token
+    )
 
     try:
+        # Her zaman database session kontrolü yap (güvenlik için)
         result = auth_service.validate_session(access_token=access_token)
         if not result or not result['valid']:
             error_msg = result.get('error', 'Invalid session') if result else 'Invalid session'

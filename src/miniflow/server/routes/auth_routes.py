@@ -13,6 +13,7 @@ from src.miniflow.server.schemas.base_schema import create_success_response
 from src.miniflow.server.schemas.routes.auth_schemas import (
     RegisterUserRequest,
     SendVerificationEmailRequest,
+    RequestVerificationEmailRequest,
     VerifyEmailRequest,
     LoginRequest,
     RefreshTokenRequest,
@@ -108,6 +109,45 @@ async def send_verification_email(
         request=request,
         data=result,
         message="Verification email sent successfully. Please check your inbox.",
+        code=status.HTTP_200_OK,
+    ).model_dump()
+
+
+# ============================================================================
+# REQUEST VERIFICATION EMAIL (BY EMAIL)
+# ============================================================================
+
+@router.post(
+    "/request-verification-email",
+    summary="Request verification email by email address",
+    description="Request a new verification email by providing only the email address",
+    status_code=status.HTTP_200_OK,
+)
+async def request_verification_email(
+    request: Request,
+    body: RequestVerificationEmailRequest,
+    auth_service: AuthenticationService = Depends(get_auth_service),
+) -> Dict[str, Any]:
+    """
+    Request a new verification email by email address.
+    
+    - **email**: Email address to send verification to
+    
+    This endpoint allows users to request a new verification email by providing only their email address.
+    If the email is already verified, no email will be sent (spam prevention).
+    For security reasons, the same message is returned whether the email exists or not.
+    """
+    result = auth_service.request_verification_email(
+        email=body.email,
+    )
+    
+    # Response mesajını result'tan al, yoksa varsayılan mesajı kullan
+    response_message = result.get("message", "If an account with this email exists and is not verified, a verification email has been sent. Please check your inbox.")
+    
+    return create_success_response(
+        request=request,
+        data=result,
+        message=response_message,
         code=status.HTTP_200_OK,
     ).model_dump()
 

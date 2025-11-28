@@ -50,6 +50,23 @@ class SendVerificationEmailResponse(BaseModel):
 
 
 # ============================================================================
+# REQUEST VERIFICATION EMAIL (BY EMAIL)
+# ============================================================================
+
+class RequestVerificationEmailRequest(BaseModel):
+    """Request verification email by email address schema"""
+    email: EmailStr = Field(..., description="Email address to send verification to")
+
+
+class RequestVerificationEmailResponse(BaseModel):
+    """Request verification email response schema"""
+    user_id: str = Field(..., description="User ID")
+    username: str = Field(..., description="Username")
+    email: str = Field(..., description="Email address")
+    is_verified: bool = Field(..., description="Email verification status")
+
+
+# ============================================================================
 # VERIFY EMAIL
 # ============================================================================
 

@@ -283,8 +283,25 @@ class UserService:
         user.email = new_email
         user.is_verified = False  # Yeni email doğrulanana kadar verified değil
         user.email_verified_at = None
+        # Eski verification token'ı temizle ve yeni token oluştur
+        user.email_verification_token = None
+        user.email_verification_token_expires_at = None
+        
+        # Yeni email verification token oluştur
         verification_token = user.generate_email_verification_token()
+        
+        # Token'ın oluşturulduğundan emin ol
+        if not verification_token or not user.email_verification_token:
+            raise BusinessRuleViolationError(
+                rule_name="verification_token_creation_failed",
+                rule_detail="verification token creation failed",
+                message="Failed to create email verification token. Please try again."
+            )
 
+        # Email değiştiği için tüm aktif session'ları revoke et (güvenlik için)
+        # Kullanıcı yeni email'i verify etmeden işlem yapamaz
+        num_revoked = self._auth_session_repo._revoke_sessions(session, user_id=user_id)
+        
         # Yeni email'e verification token gönder
         self._mailtrap_client.send_verification_email(
             to_email=new_email,
@@ -317,8 +334,11 @@ class UserService:
             "username": user.username,
             "email": user.email,
             "is_verified": user.is_verified,
+            "email_verification_token": verification_token,  # Debug için (production'da kaldırılabilir)
+            "email_verification_token_expires_at": user.email_verification_token_expires_at.isoformat() if user.email_verification_token_expires_at else None,
+            "sessions_revoked": num_revoked,
             "success": True,
-            "message": "Email updated successfully. Please verify your new email address.",
+            "message": "Email updated successfully. Please verify your new email address. All active sessions have been revoked for security.",
         }
 
     @with_transaction(manager=None)

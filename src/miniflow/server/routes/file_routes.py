@@ -191,10 +191,16 @@ async def create_file(
     if tags:
         tags_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
     
+    # FastAPI UploadFile.read/seek async olduğu için helper'ın senkron okuma mantığıyla çakışıyor.
+    # Bu yüzden alttaki gerçek dosya objesini (SpooledTemporaryFile) kullanıyoruz
+    # ve filename bilgisini de attribute olarak ekliyoruz.
+    uploaded_stream = file.file
+    setattr(uploaded_stream, "filename", file.filename)
+
     result = file_service.create_file(
         workspace_id=workspace_id,
         owner_id=current_user["user_id"],
-        uploaded_file=file.file,
+        uploaded_file=uploaded_stream,
         name=name,
         description=description,
         tags=tags_list,

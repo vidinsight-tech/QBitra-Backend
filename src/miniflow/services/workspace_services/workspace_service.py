@@ -91,6 +91,16 @@ class WorkspaceService:
                 message="Workspace already exists",
             )
 
+        # Kullanıcının ücretsiz workspace limiti kontrolü
+        # Tüm workspaceler varsayılan olarak "Freemium" plan ile oluşturulduğu için
+        # bir kullanıcının en fazla 1 adet ücretsiz workspace sahibi olmasına izin verilir.
+        if user.current_free_workspace_count >= 1:
+            raise BusinessRuleViolationError(
+                rule_name="free_workspace_limit_reached",
+                rule_detail="free workspace limit reached",
+                message="You can only have 1 free workspace",
+            )
+
         plan = self._workspace_plan_repo._get_by_name(session, name="Freemium")
         if not plan:
             raise BusinessRuleViolationError(
@@ -138,6 +148,7 @@ class WorkspaceService:
             workspace_id=workspace.id,
             user_id=owner_id,
             role_id=owner_role.id,
+            role_name=owner_role.name,
             invited_by=owner_id,
             joined_at=datetime.now(timezone.utc),
             last_accessed_at=datetime.now(timezone.utc),

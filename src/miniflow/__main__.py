@@ -573,13 +573,12 @@ class MiniFlow:
         Exception handler'ları ekle (spesifikten genele).
         """
         import warnings
+        # HTTP_422_UNPROCESSABLE_ENTITY deprecation warning'ini suppress et
+        # FastAPI/Starlette'de henüz HTTP_422_UNPROCESSABLE_CONTENT mevcut değil
+        warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*HTTP_422_UNPROCESSABLE_ENTITY.*")
+        
         from fastapi.exceptions import RequestValidationError
         from starlette.exceptions import HTTPException as StarletteHTTPException
-        
-        # HTTP_422_UNPROCESSABLE_ENTITY deprecation warning'ini suppress et
-        # FastAPI'de henüz HTTP_422_UNPROCESSABLE_CONTENT mevcut değil
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*HTTP_422_UNPROCESSABLE_ENTITY.*")
         from src.miniflow.server.middleware.exception_handler import (
             app_exception_handler,
             validation_exception_handler,
