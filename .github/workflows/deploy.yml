@@ -118,10 +118,11 @@ jobs:
             # Create environment file
             echo "📝 Creating environment file..."
             cat > .env << EOF
-            APP_ENV=production
+            TEST_KEY=ThisKeyIsForConfigTest
+            APP_ENV=dev
             DB_TYPE=sqlite
             DATABASE_URL=sqlite:///${SHARED_DIR}/data/miniflow.db
-            CONFIG_PATH=./configurations/prod.ini
+            CONFIG_PATH=./configurations/dev.ini
             JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             SERVER_HOST=0.0.0.0
