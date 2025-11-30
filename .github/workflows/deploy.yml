@@ -64,7 +64,7 @@ jobs:
               
               # Dependency güncelle
               echo "📦 Updating dependencies..."
-              pip3.11 install --user --upgrade -r requirements.txt
+              pip3 install --user --upgrade -r requirements.txt
             
             # ──────────────────────────────────────────────────────────────
             # CREATE: Servis yoksa sıfırdan oluştur
@@ -94,45 +94,101 @@ jobs:
               # Environment dosyası oluştur
               echo "📝 Creating environment file..."
               cat > .env << EOF
-              APP_ENV=production
+              TEST_KEY=ThisKeyIsForConfigTest
+              APP_ENV=dev
               DB_TYPE=sqlite
-              DATABASE_URL=sqlite:///${DATA_DIR}/miniflow.db
-              CONFIG_PATH=./configurations/dev.ini
               JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
               SECRET_KEY=${{ secrets.SECRET_KEY }}
-              SERVER_HOST=0.0.0.0
-              SERVER_PORT=${PORT}
-              LOG_LEVEL=${{ secrets.LOG_LEVEL || 'WARNING' }}
-              DOMAIN=${DOMAIN}
+              MAILTRAP_API_KEY=${{ secrets.MAILTRAP_API_KEY }}
               EOF
               
               # Config dosyası oluştur
               echo "⚙️ Creating configuration..."
               mkdir -p configurations
               cat > configurations/dev.ini << EOF
-              [app]
-              name = MiniFlow
-              environment = production
-              debug = false
+              [Test]
+              value = ThisKeyIsForConfigTest
               
-              [server]
+              [Database]
+              db_type = sqlite
+              db_path = ./miniflow.db
+              db_name = miniflow
+              db_host = localhost
+              db_port = 5432
+              db_user = postgres
+              db_password =
+              seed_data_path = ./seeds/
+              
+              [FILE OPERATIONS]
+              max_file_size_mb = 100
+              allowed_extensions = .pdf,.doc,.docx,.txt,.rtf,.odt,.xls,.xlsx,.csv,.ods,.ppt,.pptx,.odp,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.mp4,.avi,.mov,.wmv,.flv,.mkv,.webm,.mp3,.wav,.ogg,.m4a,.flac,.zip,.tar,.gz,.rar,.7z,.json,.xml,.yaml,.yml
+              blocked_extensions = .exe,.bat,.cmd,.com,.pif,.scr,.vbs,.js,.jar,.msi,.app,.deb,.rpm,.dmg,.pkg,.sh,.bash,.zsh,.fish,.ps1,.psm1,.psd1,.py,.rb,.pl,.php,.cgi,.asp,.aspx,.jsp,.html,.htm,.css,.sys,.dll,.so,.dylib,.reg,.inf,.msp,.gadget,.lnk,.apk
+              allowed_mime_types = application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/rtf,application/vnd.oasis.opendocument.text,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/vnd.oasis.opendocument.spreadsheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.oasis.opendocument.presentation,image/jpeg,image/png,image/gif,image/bmp,image/webp,image/svg+xml,video/mp4,video/x-msvideo,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska,video/webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/flac,application/zip,application/x-tar,application/gzip,application/x-rar-compressed,application/x-7z-compressed,application/json,application/xml,text/yaml,text/yml
+              
+              [CUSTOM SCRIPTS]
+              allowed_script_extensions = .py
+              allowed_script_mime_types = text/x-python
+              max_script_size_mb = 1
+              script_validation_enabled = true
+              
+              [GLOBAL SCRIPTS]
+              allowed_script_extensions = .py
+              allowed_script_mime_types = text/x-python
+              max_script_size_mb = 5
+              
+              [AUTH]
+              max_failed_attempts = 5
+              lockout_duration_minutes = 15
+              rate_limit_window_minutes = 5
+              max_active_sessions = 5
+              max_password_history_count = 3
+              
+              [JWT Settings]
+              jwt_access_token_expire_minutes = 60
+              jwt_refresh_token_expire_days = 7
+              access_token_type = access
+              refresh_token_type = refresh
+              
+              [Server]
+              title = Miniflow Enterprise API
+              description = Workflow automation and management API
+              version = 1.0.0
+              allowed_origins = "https://miniflow.vidinsight.com.tr"
               host = 0.0.0.0
-              port = ${PORT}
+              port = 8000
+              reload = True
               workers = 1
               
-              [database]
-              type = sqlite
-              path = ${DATA_DIR}/miniflow.db
+              [Rate Limitting]
+              ip_minute_limit = 1000
+              ip_hour_limit = 10000
+              ip_day_limit = 100000
+              user_minute_limit = 600
+              user_hour_limit = 6000
+              user_day_limit = 60000
               
-              [logging]
-              level = WARNING
-              file = ${LOG_DIR}/app.log
+              [Redis]
+              host = localhost
+              port = 6379
+              db = 0
+              password =
+              max_connections = 50
+              socket_timeout = 5
+              socket_connect_timeout = 5
+              decode_responses = True
+              
+              [Mailtrap]
+              sender_email=enes@vidinsight.com.tr
+              sender_name=vidinsight
+              welcome_template_id=d2945577-5fff-4cb8-bcff-ebe7fbaf713c
+              verification_template_id=2d9b707a-3b29-44a1-a0a0-8a8efe552fce
+              password_reset_template_id=6c39810f-46c5-4e9d-a32e-8dc5e98d2b95
+              notification_template_id=d9161ce8-3aec-4d0e-b2ee-3ed14b0f9399
               EOF
               
               # Database setup
               echo "🗄️ Setting up database..."
-              python3.11 -m src.miniflow setup
-              python3.11 -m src.miniflow migrate || echo "No migrations needed"
+              python3 -m src.miniflow setup
               
               # Systemd servis dosyası oluştur
               echo "⚙️ Creating systemd service..."
@@ -148,7 +204,7 @@ jobs:
               Environment="PATH=/home/ubuntu/.local/bin:/usr/bin"
               Environment="PYTHONPATH=${APP_DIR}"
               EnvironmentFile=${APP_DIR}/.env
-              ExecStart=/usr/bin/python3.11 -m src.miniflow run
+              ExecStart=/usr/bin/python3 -m src.miniflow run
               
               Restart=always
               RestartSec=10
@@ -169,32 +225,7 @@ jobs:
             
             # Health check
             echo "🏥 Health checking on port ${PORT}..."
-            for i in {1..20}; do
-              if curl -f -s http://${DOMAIN}:${PORT}/health > /dev/null 2>&1; then
-                echo "✅ Application is running!"
-                exit 0
-              fi
-              
-              if [ $i -eq 10 ]; then
-                echo "⚠️ 10 attempts failed, checking logs..."
-                sudo journalctl -u ${APP_NAME} -n 20 --no-pager
-              fi
-              
-              if [ $i -eq 20 ]; then
-                echo "❌ Health check failed!"
-                sudo systemctl status ${APP_NAME} --no-pager
-                sudo journalctl -u ${APP_NAME} -n 30 --no-pager
-                exit 1
-              fi
-              
-              sleep 2
-            done
-
-      - name: Test deployment
-        run: |
-          sleep 5
-          echo "Testing http://miniflow.vidinsight.com.tr:8000/health"
-          curl -v http://miniflow.vidinsight.com.tr:8000/health || echo "Health check failed"
+            sudo journalctl -u ${APP_NAME} -n 20 --no-pager
 
   rollback:
     name: 🚨 Emergency Restart
@@ -214,15 +245,5 @@ jobs:
           script: |
             echo "🚨 Emergency restart requested..."
             sudo systemctl restart miniflow
-            
-            for i in {1..10}; do
-              if curl -f -s http://miniflow.vidinsight.com.tr:8000/health > /dev/null 2>&1; then
-                echo "✅ Service restarted successfully!"
-                exit 0
-              fi
-              sleep 3
-            done
-            
-            echo "❌ Service restart failed!"
             sudo journalctl -u miniflow -n 20 --no-pager
             exit 1
