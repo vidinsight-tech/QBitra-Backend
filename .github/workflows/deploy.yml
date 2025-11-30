@@ -97,7 +97,7 @@ jobs:
               APP_ENV=production
               DB_TYPE=sqlite
               DATABASE_URL=sqlite:///${DATA_DIR}/miniflow.db
-              CONFIG_PATH=./configurations/prod.ini
+              CONFIG_PATH=./configurations/dev.ini
               JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
               SECRET_KEY=${{ secrets.SECRET_KEY }}
               SERVER_HOST=0.0.0.0
@@ -109,7 +109,7 @@ jobs:
               # Config dosyası oluştur
               echo "⚙️ Creating configuration..."
               mkdir -p configurations
-              cat > configurations/prod.ini << EOF
+              cat > configurations/dev.ini << EOF
               [app]
               name = MiniFlow
               environment = production
