@@ -39,14 +39,6 @@ jobs:
           port: ${{ secrets.PROD_PORT || 22 }}
           envs: VERSION,GITHUB_REPO,GITHUB_TOKEN
           command_timeout: 30m
-          jobs:
-  deploy-production:
-# ... (Diğer adımlar aynı)
-    steps:
-      - name: Deploy and manage service
-# ... (with ve env blokları aynı)
-        with:
-          # ... (host, user, key, vb. aynı)
           script: |
             set -euo pipefail
             
