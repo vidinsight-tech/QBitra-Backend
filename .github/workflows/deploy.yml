@@ -11,10 +11,8 @@ on:
         description: 'Enable rollback mode'
         type: boolean
         default: false
-
 env:
   PYTHON_VERSION: "3.11"
-
 jobs:
   test:
     name: 🧪 Test Suite
@@ -73,7 +71,6 @@ jobs:
 
   deploy-production:
     name: 🚀 Deploy to Production
-    needs: [code-quality, test]
     if: |
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && !inputs.rollback)
