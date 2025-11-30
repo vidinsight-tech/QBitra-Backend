@@ -39,6 +39,14 @@ jobs:
           port: ${{ secrets.PROD_PORT || 22 }}
           envs: VERSION,GITHUB_REPO,GITHUB_TOKEN
           command_timeout: 30m
+          jobs:
+  deploy-production:
+# ... (Diğer adımlar aynı)
+    steps:
+      - name: Deploy and manage service
+# ... (with ve env blokları aynı)
+        with:
+          # ... (host, user, key, vb. aynı)
           script: |
             set -euo pipefail
             
@@ -93,20 +101,20 @@ jobs:
               
               # Environment dosyası oluştur
               echo "📝 Creating environment file..."
-              cat > .env <<-EOF
+              cat > .env <<-EOF # <-- <<- kullandık
               TEST_KEY=ThisKeyIsForConfigTest
               APP_ENV=dev
               DB_TYPE=sqlite
               JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
               SECRET_KEY=${{ secrets.SECRET_KEY }}
               MAILTRAP_API_KEY=${{ secrets.MAILTRAP_API_KEY }}
-              EOF
-
+              EOF # <-- BAŞINDA SADECE TAB KARAKTERİ VAR (Hata yoksa bu düzeltmeli)
+              
               
               # Config dosyası oluştur
               echo "⚙️ Creating configuration..."
               mkdir -p configurations
-              cat > configurations/dev.ini <<-EOF
+              cat > configurations/dev.ini <<-EOF # <-- <<- kullandık
               [Test]
               value = ThisKeyIsForConfigTest
               
@@ -185,7 +193,7 @@ jobs:
               verification_template_id=2d9b707a-3b29-44a1-a0a0-8a8efe552fce
               password_reset_template_id=6c39810f-46c5-4e9d-a32e-8dc5e98d2b95
               notification_template_id=d9161ce8-3aec-4d0e-b2ee-3ed14b0f9399
-              EOF
+              EOF # <-- BAŞINDA SADECE TAB KARAKTERİ VAR
               
               # Database setup
               echo "🗄️ Setting up database..."
@@ -193,7 +201,7 @@ jobs:
               
               # Systemd servis dosyası oluştur
               echo "⚙️ Creating systemd service..."
-              sudo tee /etc/systemd/system/${APP_NAME}.service > /dev/null <<-SERVICEEOF
+              sudo tee /etc/systemd/system/${APP_NAME}.service > /dev/null <<-SERVICEEOF # <-- <<- kullandık
               [Unit]
               Description=MiniFlow Application v${VERSION}
               After=network.target
@@ -214,7 +222,7 @@ jobs:
               
               [Install]
               WantedBy=multi-user.target
-              SERVICEEOF
+              SERVICEEOF # <-- BAŞINDA SADECE TAB KARAKTERİ VAR
               
               # Systemd'yı yenile ve servisi etkinleştir
               sudo systemctl daemon-reload
