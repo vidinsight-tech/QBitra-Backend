@@ -12,5 +12,5 @@ from src.miniflow.__main__ import MiniFlow
 # Create MiniFlow instance and app
 # This will be re-executed on each reload, which is expected behavior
 _miniflow = MiniFlow()
-app = _miniflow.create_fastapi_app()
+app = _miniflow._create_fastapi_app()
 

@@ -28,7 +28,6 @@ from .workflow_services import (
     EdgeService
 )
 from .execution_services import ExecutionService
-from .scheduler_service import SchedulerService
 
 
 __all__ = [
@@ -51,6 +50,5 @@ __all__ = [
     "TriggerService",
     "NodeService",
     "EdgeService",
-    "SchedulerService",
     "ExecutionService",
 ]

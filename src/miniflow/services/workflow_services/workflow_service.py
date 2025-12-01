@@ -240,7 +240,7 @@ class WorkflowService:
         
         return {
             "deleted": True,
-            "workflow_id": workflow_id
+            "id": workflow_id
         }
 
     @with_readonly_session(manager=None)

@@ -93,7 +93,8 @@ async def authenticate_user(
             error_msg = result.get('error', 'Invalid session') if result else 'Invalid session'
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_msg)
         
-        user_id = result.get('user_id')
+        # validate_session returns 'id' for consistency, but we use it as user_id internally
+        user_id = result.get('id') or result.get('user_id')  # Support both for backward compatibility
         
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")

@@ -167,7 +167,7 @@ class WorkspaceInvatationService:
         )
 
         return {
-            'invitation_id': invitation.id,
+            'id': invitation.id,
             'workspace_id': invitation.workspace_id,
             'invited_by': invitation.invited_by,
             'invitee_id': invitation.invitee_id,
@@ -213,7 +213,7 @@ class WorkspaceInvatationService:
         session.add(invitation)
         
         return {
-            'invitation_id': invitation.id,
+            'id': invitation.id,
             'status': invitation.status.value,
             'declined_at': invitation.declined_at.isoformat() if invitation.declined_at else None,
         }
@@ -254,7 +254,7 @@ class WorkspaceInvatationService:
         session.add(invitation)
         
         return {
-            'invitation_id': invitation.id,
+            'id': invitation.id,
             'status': invitation.status.value,
         }
 
@@ -337,8 +337,8 @@ class WorkspaceInvatationService:
         session.add(workspace)
         
         return {
-            'invitation_id': invitation.id,
-            'member_id': member.id,
+            'id': invitation.id,  # Invitation ID (main record)
+            'member_id': member.id,  # Member ID (secondary record created)
             'workspace_id': member.workspace_id,
             'user_id': member.user_id,
             'role_id': member.role_id,

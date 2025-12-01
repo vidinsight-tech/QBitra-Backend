@@ -426,7 +426,7 @@ class NodeService:
         )
         
         return {
-            "node_id": node.id,
+            "id": node.id,
             "node_name": node.name,
             "script_id": node.script_id,
             "custom_script_id": node.custom_script_id,
@@ -672,7 +672,7 @@ class NodeService:
         
         return {
             "deleted": True,
-            "node_id": node_id
+            "id": node_id
         }
 
     @with_readonly_session(manager=None)

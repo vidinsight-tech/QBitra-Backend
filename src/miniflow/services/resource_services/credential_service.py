@@ -198,6 +198,6 @@ class CredentialService:
         
         return {
             "deleted": True,
-            "credential_id": credential_id
+            "id": credential_id
         }
 

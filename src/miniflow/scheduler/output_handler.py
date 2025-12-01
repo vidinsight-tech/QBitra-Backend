@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as
 from typing import Dict, Any, List, Optional
 
 from src.miniflow.utils.handlers.configuration_handler import ConfigurationHandler
-from src.miniflow.services.scheduler_service import SchedulerService
+from src.miniflow.services.internal_services.scheduler_service import SchedulerForOutputHandler
 from src.miniflow.core.exceptions import (
     HandlerConfigurationError,
     ResultProcessingError,
@@ -20,11 +20,11 @@ class OutputHandler:
     
     Sorumluluklar:
     - Engine'den result'ları al (batch)
-    - Her result için SchedulerService.process_execution_result() çağır
+    - Her result için SchedulerForOutputHandler.process_execution_result() çağır
     - Başarılı/başarısız işlemleri takip et
     """
     
-    def __init__(self, scheduler_service: SchedulerService, exec_engine):
+    def __init__(self, scheduler_service: SchedulerForOutputHandler, exec_engine):
         self.scheduler_service = scheduler_service
         self.exec_engine = exec_engine
 

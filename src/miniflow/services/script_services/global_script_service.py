@@ -206,7 +206,7 @@ class GlobalScriptService:
         
         return {
             "deleted": True,
-            "script_id": script_id
+            "id": script_id
         }
 
     @with_readonly_session(manager=None)
@@ -250,3 +250,66 @@ class GlobalScriptService:
             "items": items,
             "metadata": result.metadata.to_dict()
         }
+
+    @with_transaction(manager=None)
+    def seed_script(self, session, *, scripts_data: List[Dict]):
+        """Seed global scripts (for initial setup)"""
+        stats = {"created": 0, "skipped": 0}
+
+        for script_data in scripts_data:
+            script_name = script_data.get("name")
+            if not script_name:
+                continue
+
+            # Check if script already exists
+            existing = self._script_repo._get_by_name(session, name=script_name, include_deleted=False)
+            if existing:
+                stats["skipped"] += 1
+                continue
+
+            try:
+                # Use create_script logic but without raising exception if exists
+                category = script_data.get("category")
+                subcategory = script_data.get("subcategory")
+                content = script_data.get("content")
+                
+                if not category or not content:
+                    continue
+
+                # Upload script file
+                file_extension = ".py"
+                upload_result = upload_global_script(
+                    content=content,
+                    script_name=script_name,
+                    extension=file_extension,
+                    category=category,
+                    subcategory=subcategory
+                )
+                file_path = upload_result["file_path"]
+                file_size = upload_result["file_size"]
+
+                # Create script
+                self._script_repo._create(
+                    session,
+                    name=script_name,
+                    category=category,
+                    description=script_data.get("description"),
+                    subcategory=subcategory,
+                    file_extension=file_extension,
+                    file_path=file_path,
+                    file_size=file_size,
+                    content=content,
+                    script_metadata=script_data.get("script_metadata", {}),
+                    required_packages=script_data.get("required_packages", []),
+                    input_schema=script_data.get("input_schema", {}),
+                    output_schema=script_data.get("output_schema", {}),
+                    tags=script_data.get("tags", []),
+                    documentation_url=script_data.get("documentation_url"),
+                    created_by="system",
+                )
+                stats["created"] += 1
+            except Exception:
+                # Skip on error (e.g., file system error, validation error)
+                stats["skipped"] += 1
+
+        return stats

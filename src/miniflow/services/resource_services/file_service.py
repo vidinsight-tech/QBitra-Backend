@@ -237,7 +237,7 @@ class FileService:
         
         return {
             "deleted": True,
-            "file_id": file_id
+            "id": file_id
         }
 
     

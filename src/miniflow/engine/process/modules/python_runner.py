@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import traceback
+from datetime import datetime, timezone
 from queue import Queue
 
 
@@ -8,6 +10,9 @@ def python_runner(item: json, output_queue: Queue):
     node_id = item.get("node_id", "UNKNOWN")
 
     print(f"[PYTHON_RUNNER] Starting task: execution_id={execution_id}, node_id={node_id}")
+    
+    started_at = datetime.now(timezone.utc)
+    item["started_at"] = started_at.isoformat()
     
     try:
         script_path = item.get("script_path")
@@ -43,23 +48,32 @@ def python_runner(item: json, output_queue: Queue):
         item["result_data"] = result
         item["status"] = "SUCCESS"
 
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         item["error_message"] = "Script file not found"
+        item["error_details"] = {"exception_type": type(e).__name__, "message": str(e), "traceback": traceback.format_exc()}
         item["status"] = "FAILED"
     except ImportError as e:
         item["error_message"] = f"Import error: {str(e)}"
+        item["error_details"] = {"exception_type": type(e).__name__, "message": str(e), "traceback": traceback.format_exc()}
         item["status"] = "FAILED"
     except AttributeError as e:
         item["error_message"] = f"Attribute error: {str(e)}"
+        item["error_details"] = {"exception_type": type(e).__name__, "message": str(e), "traceback": traceback.format_exc()}
         item["status"] = "FAILED"
     except ValueError as e:
         item["error_message"] = f"Value error: {str(e)}"
+        item["error_details"] = {"exception_type": type(e).__name__, "message": str(e), "traceback": traceback.format_exc()}
         item["status"] = "FAILED"
     except (json.JSONDecodeError, TypeError) as e:
         item["error_message"] = f"JSON error: {str(e)}"
+        item["error_details"] = {"exception_type": type(e).__name__, "message": str(e), "traceback": traceback.format_exc()}
         item["status"] = "FAILED"
     except Exception as e:
         item["error_message"] = f"Unexpected error: {str(e)}"
+        item["error_details"] = {"exception_type": type(e).__name__, "message": str(e), "traceback": traceback.format_exc()}
         item["status"] = "FAILED"
+    finally:
+        ended_at = datetime.now(timezone.utc)
+        item["ended_at"] = ended_at.isoformat()
 
     output_queue.put(item)

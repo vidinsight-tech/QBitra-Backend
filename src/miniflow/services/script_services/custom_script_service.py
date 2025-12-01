@@ -276,7 +276,7 @@ class CustomScriptService:
         
         return {
             "deleted": True,
-            "custom_script_id": custom_script_id
+            "id": custom_script_id
         }
 
     @with_readonly_session(manager=None)

@@ -132,7 +132,7 @@ class AuthenticationService:
             )
 
         return {
-            "user_id": user.id,
+            "id": user.id,
             "username": user.username,
             "email": user.email,
             "is_verified": user.is_verified,
@@ -169,7 +169,7 @@ class AuthenticationService:
         )
 
         return {
-            "user_id": user.id,
+            "id": user.id,
             "username": user.username,
             "email": user.email,
             "is_verified": user.is_verified,
@@ -215,7 +215,7 @@ class AuthenticationService:
             )
             
             return {
-                "user_id": user.id,
+                "id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "is_verified": user.is_verified,
@@ -250,7 +250,7 @@ class AuthenticationService:
         )
 
         return {
-            "user_id": user.id,
+            "id": user.id,
             "username": user.username,
             "email": user.email,
             "is_verified": user.is_verified,
@@ -305,7 +305,7 @@ class AuthenticationService:
         )
 
         return {
-            "user_id": user.id,
+            "id": user.id,
             "username": user.username,
             "email": user.email,
             "is_verified": user.is_verified,
@@ -433,7 +433,7 @@ class AuthenticationService:
             )
 
         return {
-            "user_id": user.id,
+            "id": user.id,
             "username": user.username,
             "email": user.email,
             "access_token": access_token,
@@ -607,7 +607,7 @@ class AuthenticationService:
         auth_session.last_activity_at = datetime.now(timezone.utc)
 
         return {
-            'user_id': user.id,
+            'id': user.id,
             'access_token': new_access_token,
             'refresh_token': new_refresh_token,
         }
@@ -675,5 +675,5 @@ class AuthenticationService:
 
         return {
             "valid": True,
-            "user_id": auth_session.user_id,
+            "id": auth_session.user_id,  # Return as 'id' for consistency with other responses
         }

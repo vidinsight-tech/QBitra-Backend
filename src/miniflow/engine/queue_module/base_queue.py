@@ -41,21 +41,42 @@ class BaseQueue:
             print("[BaseQueue] CRITICAL: Queue full after 3 retries, item dropped")
             return False
     
-    def put_batch(self, items: list):
-        """Batch put operation with retry mechanism"""
+    def put_batch(self, items: list, max_retries: int = 3, retry_delay: float = 0.1):
+        """
+        Batch put operation with retry mechanism.
+        Requires 100% success - all items must be successfully added to queue.
+        
+        Args:
+            items: List of items to add to queue
+            max_retries: Maximum number of retry attempts per item
+            retry_delay: Initial delay between retries (exponential backoff)
+        
+        Returns:
+            bool: True if ALL items were successfully added, False otherwise
+        """
         if not items:
             return True
         
-        successful = 0
+        failed_items = []
+        
         for item in items:
-            if self.put(item):
-                successful += 1
+            success = False
+            for attempt in range(max_retries):
+                if self.put(item):
+                    success = True
+                    break
+                
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))
+            
+            if not success:
+                failed_items.append(item)
         
-        success_rate = successful / len(items)
-        if success_rate < 0.8:  # Less than 80% success
-            print(f"[BaseQueue] WARNING: Batch put low success rate: {success_rate:.1%}")
+        if failed_items:
+            print(f"[BaseQueue] ERROR: Failed to add {len(failed_items)}/{len(items)} items to queue after {max_retries} retries")
+            return False
         
-        return success_rate > 0.5  # Return True if more than 50% successful
+        return True
 
     def get_with_timeout(self, timeout=1.0):
         """Get with timeout - safer version"""

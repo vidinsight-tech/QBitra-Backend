@@ -79,8 +79,15 @@ def get_edge_service() -> EdgeService:
     return EdgeService()
 
 @lru_cache(maxsize=1)
-def get_scheduler_service() -> SchedulerService:
-    return SchedulerService()
+def get_scheduler_service():
+    """
+    Scheduler service dependency - returns None as scheduler is handled internally.
+    
+    Note: Scheduler functionality is provided by SchedulerForInputHandler and
+    SchedulerForOutputHandler classes in internal_services.scheduler_service.
+    These are used directly by ExecutionInputHandler and ExecutionOutputHandler.
+    """
+    return None
 
 @lru_cache(maxsize=1)
 def get_execution_service() -> ExecutionService:

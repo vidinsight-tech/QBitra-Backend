@@ -25,7 +25,7 @@ class RegisterUserRequest(BaseModel):
 
 class RegisterUserResponse(BaseModel):
     """User registration response schema"""
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     is_verified: bool = Field(..., description="Email verification status")
@@ -43,7 +43,7 @@ class SendVerificationEmailRequest(BaseModel):
 
 class SendVerificationEmailResponse(BaseModel):
     """Send verification email response schema"""
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     is_verified: bool = Field(..., description="Email verification status")
@@ -60,7 +60,7 @@ class RequestVerificationEmailRequest(BaseModel):
 
 class RequestVerificationEmailResponse(BaseModel):
     """Request verification email response schema"""
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     is_verified: bool = Field(..., description="Email verification status")
@@ -77,7 +77,7 @@ class VerifyEmailRequest(BaseModel):
 
 class VerifyEmailResponse(BaseModel):
     """Email verification response schema"""
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     is_verified: bool = Field(..., description="Email verification status")
@@ -95,7 +95,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     """User login response schema"""
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     email: str = Field(..., description="Email address")
     access_token: str = Field(..., description="JWT access token")
@@ -133,7 +133,7 @@ class RefreshTokenRequest(BaseModel):
 
 class RefreshTokenResponse(BaseModel):
     """Refresh token response schema"""
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     access_token: str = Field(..., description="New JWT access token")
     refresh_token: str = Field(..., description="New JWT refresh token")
 

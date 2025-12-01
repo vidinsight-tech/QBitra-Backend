@@ -144,7 +144,7 @@ class WorkspaceMemberService:
         for member in members:
             self._validate_user(session, member.user_id)
             payload.append({
-                'member_id': member.id,
+                'id': member.id,
                 'user_id': member.user_id,
                 'user_name': member.user.name,
                 'user_email': member.user.email,
@@ -194,7 +194,7 @@ class WorkspaceMemberService:
         session.add(member)
 
         return {
-            'member_id': member.id,
+            'id': member.id,
             'user_id': member.user_id,
             'user_email': member.user.email,
             'role_id': role.id,
@@ -238,7 +238,7 @@ class WorkspaceMemberService:
         session.add(workspace)
         
         return {
-            'member_id': member_id,
+            'id': member_id,
             'workspace_id': workspace_id,
             'user_id': user_id,
             'deleted': True,

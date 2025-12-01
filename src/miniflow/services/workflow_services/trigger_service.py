@@ -289,7 +289,7 @@ class TriggerService:
         
         return {
             "deleted": True,
-            "trigger_id": trigger_id
+            "id": trigger_id
         }
 
     @with_readonly_session(manager=None)

@@ -170,7 +170,7 @@ class VariableService:
         
         return {
             "deleted": True,
-            "variable_id": variable_id
+            "id": variable_id
         }
 
     @with_readonly_session(manager=None)

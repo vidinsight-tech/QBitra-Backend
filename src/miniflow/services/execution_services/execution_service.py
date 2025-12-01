@@ -206,6 +206,81 @@ class ExecutionService:
             'execution_inputs': execution_inputs
         }
 
+    @with_transaction(manager=None)
+    def start_execution_from_workflow(
+        self,
+        session,
+        *,
+        workspace_id: str,
+        workflow_id: str,
+        input_data: Dict[str, Any],
+        triggered_by: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Start execution from workflow (UI-triggered, no trigger_id)"""
+        # Validate workflow exists and belongs to workspace
+        workflow = self._workflow_repo._get_by_id(session, record_id=workflow_id, include_deleted=False)
+        if not workflow:
+            raise ResourceNotFoundError(resource_name="workflow", resource_id=workflow_id)
+        
+        if workflow.workspace_id != workspace_id:
+            raise InvalidInputError(
+                field_name="workflow_id",
+                message=f"Workflow {workflow_id} does not belong to workspace {workspace_id}"
+            )
+        
+        # Create execution record (without trigger_id)
+        execution_record = self._create_execution_record_from_workflow(
+            session,
+            workspace_id=workspace_id,
+            workflow_id=workflow_id,
+            trigger_data=input_data,
+            triggered_by=triggered_by
+        )
+        
+        execution_id = execution_record['id']
+        
+        # Create execution inputs
+        execution_inputs = self._create_execution_inputs(
+            session,
+            execution_id=execution_id,
+            workflow_id=workflow_id,
+            workspace_id=workspace_id,
+            triggered_by=triggered_by
+        )
+        
+        return {
+            'id': execution_id,
+            'started_at': execution_record['started_at'],
+            'execution_inputs_count': len(execution_inputs),
+            'execution_inputs': execution_inputs
+        }
+
+    def _create_execution_record_from_workflow(
+        self,
+        session,
+        *,
+        workspace_id: str,
+        workflow_id: str,
+        trigger_data: Dict[str, Any],
+        triggered_by: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create execution record from workflow (without trigger_id)"""
+        execution = self._execution_repo._create(
+            session,
+            workspace_id=workspace_id,
+            workflow_id=workflow_id,
+            trigger_id=None,  # No trigger for UI-triggered executions
+            status=ExecutionStatus.PENDING,
+            started_at=datetime.now(timezone.utc),
+            trigger_data=trigger_data,
+            created_by=triggered_by,
+        )
+
+        return {
+            'id': execution.id,
+            'started_at': execution.started_at,
+        }
+
     def _create_execution_record(
         self,
         session,
@@ -457,6 +532,9 @@ class ExecutionService:
         """Helper method to convert execution to dict"""
         return {
             "id": execution.id,
+            "workspace_id": execution.workspace_id,
+            "workflow_id": execution.workflow_id,
+            "trigger_id": execution.trigger_id,
             "status": execution.status.value if execution.status else None,
             "started_at": execution.started_at.isoformat() if execution.started_at else None,
             "ended_at": execution.ended_at.isoformat() if execution.ended_at else None,
@@ -640,4 +718,85 @@ class ExecutionService:
         return {
             "items": items,
             "metadata": result.metadata.to_dict()
+        }
+
+    @with_readonly_session(manager=None)
+    def get_all_executions(
+        self,
+        session,
+        *,
+        workspace_id: str,
+        page: int = 1,
+        page_size: int = 100,
+        order_by: Optional[str] = None,
+        order_desc: bool = True,
+        include_deleted: bool = False,
+    ) -> Dict[str, Any]:
+        """Get all executions for a workspace with pagination"""
+        pagination_params = PaginationParams(
+            page=page,
+            page_size=page_size,
+            order_by=order_by or "created_at",
+            order_desc=order_desc,
+            include_deleted=include_deleted
+        )
+        pagination_params.validate()
+        
+        # Build filters
+        filter_params = FilterParams()
+        filter_params.add_equality_filter('workspace_id', workspace_id)
+        
+        result = self._execution_repo._paginate(
+            session,
+            pagination_params=pagination_params,
+            filter_params=filter_params
+        )
+        
+        items = [self._get_execution_dict(execution) for execution in result.items]
+        
+        return {
+            "items": items,
+            "metadata": result.metadata.to_dict()
+        }
+
+    @with_readonly_session(manager=None)
+    def get_last_executions(
+        self,
+        session,
+        *,
+        workspace_id: str,
+        limit: int = 5,
+        include_deleted: bool = False,
+    ) -> Dict[str, Any]:
+        """Get last N executions for a workspace"""
+        if limit < 1 or limit > 100:
+            raise InvalidInputError(
+                field_name="limit",
+                message="Limit must be between 1 and 100"
+            )
+        
+        pagination_params = PaginationParams(
+            page=1,
+            page_size=limit,
+            order_by="created_at",
+            order_desc=True,
+            include_deleted=include_deleted
+        )
+        pagination_params.validate()
+        
+        # Build filters
+        filter_params = FilterParams()
+        filter_params.add_equality_filter('workspace_id', workspace_id)
+        
+        result = self._execution_repo._paginate(
+            session,
+            pagination_params=pagination_params,
+            filter_params=filter_params
+        )
+        
+        items = [self._get_execution_dict(execution) for execution in result.items]
+        
+        return {
+            "items": items,
+            "count": len(items)
         }

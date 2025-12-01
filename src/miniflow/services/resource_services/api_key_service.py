@@ -305,7 +305,7 @@ class ApiKeyService:
         
         return {
             "deleted": True,
-            "api_key_id": api_key_id
+            "id": api_key_id
         }
 
     @with_readonly_session(manager=None)

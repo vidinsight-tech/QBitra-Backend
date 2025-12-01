@@ -13,28 +13,78 @@ T = TypeVar('T')
 
 def _inject_session_parameter(func: Callable, session: Session, args: tuple, kwargs: dict) -> Any:
     """
-    Helper function to inject session parameter correctly for both functions and methods.
+    Inject session parameter correctly for both functions and methods.
+    
+    This improved version gracefully handles user mistakes:
+    - If user accidentally passes session → Override with decorator's session
+    - If user correctly omits session → Insert decorator's session
+    - Works with both positional args and keyword args
     
     Args:
         func: The function to call
-        session: The session to inject
+        session: The session to inject (from decorator)
         args: Positional arguments from the original call
         kwargs: Keyword arguments from the original call
     
     Returns:
         The result of the function call
+        
+    Algorithm:
+        1. Find session parameter index in function signature
+        2. Check if session is in kwargs → override it
+        3. Count actual vs expected args:
+           - If actual == expected → user passed session (OVERRIDE)
+           - If actual == expected - 1 → user didn't pass session (INSERT)
+           - Otherwise → insert at correct position
     """
-    # Check if the function is a method (has 'self' as first parameter)
     sig = inspect.signature(func)
     params = list(sig.parameters.keys())
     
-    # If first parameter is 'self', it's a method
-    if params and params[0] == 'self' and args:
-        # Method: func(self, session, *other_args, **kwargs)
-        return func(args[0], session, *args[1:], **kwargs)
+    # Find the index of the 'session' parameter
+    try:
+        session_param_index = params.index('session')
+    except ValueError:
+        # No 'session' parameter in function - just call as-is
+        # This shouldn't happen with our decorators, but handle gracefully
+        return func(*args, **kwargs)
+    
+    # CASE 1: Session passed as keyword argument
+    if 'session' in kwargs:
+        # Override the keyword argument with decorator's session
+        modified_kwargs = dict(kwargs)
+        modified_kwargs['session'] = session
+        # Use args as-is (session shouldn't be in args if it's in kwargs)
+        return func(*args, **modified_kwargs)
+    
+    # CASE 2: Session passed as positional argument (or not passed at all)
+    args_list = list(args)
+    
+    # Calculate expected parameter count
+    expected_param_count = len(params)
+    actual_args_count = len(args_list)
+    
+    if actual_args_count == expected_param_count:
+        # User passed ALL parameters including session
+        # Example: foo(cls, user_session, data) when signature is foo(cls, session, data)
+        # This is WRONG, but we handle it gracefully
+        # STRATEGY: OVERRIDE user's session with decorator's session
+        args_list[session_param_index] = session
+        return func(*args_list, **kwargs)
+    
+    elif actual_args_count == expected_param_count - 1:
+        # User passed all parameters EXCEPT session
+        # Example: foo(cls, data) when signature is foo(cls, session, data)
+        # This is CORRECT usage
+        # STRATEGY: INSERT decorator's session at the correct position
+        args_list.insert(session_param_index, session)
+        return func(*args_list, **kwargs)
+    
     else:
-        # Function: func(session, *args, **kwargs)
-        return func(session, *args, **kwargs)
+        # Edge case: User passed fewer parameters than expected
+        # Could be valid if there are default parameters
+        # STRATEGY: INSERT session at the correct position and let Python handle validation
+        args_list.insert(session_param_index, session)
+        return func(*args_list, **kwargs)
 
 
 def with_session(
@@ -160,21 +210,52 @@ def with_session(
         - :meth:`with_transaction`: Atomic transaction için
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
-            # Manager al
-            mgr = manager or get_database_manager()
+        # classmethod veya staticmethod desteği
+        if isinstance(func, classmethod):
+            original_func = func.__func__
             
-            # Session context kullan
-            with mgr.engine.session_context(
-                auto_commit=auto_commit,
-                auto_flush=auto_flush,
-                isolation_level=isolation_level
-            ) as session:
-                # Session inject et
-                return _inject_session_parameter(func, session, args, kwargs)
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=auto_commit,
+                    auto_flush=auto_flush,
+                    isolation_level=isolation_level
+                ) as session:
+                    return _inject_session_parameter(original_func, session, args, kwargs)
+            
+            return classmethod(wrapper)
         
-        return wrapper
+        elif isinstance(func, staticmethod):
+            original_func = func.__func__
+            
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=auto_commit,
+                    auto_flush=auto_flush,
+                    isolation_level=isolation_level
+                ) as session:
+                    return _inject_session_parameter(original_func, session, args, kwargs)
+            
+            return staticmethod(wrapper)
+        
+        else:
+            @wraps(func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=auto_commit,
+                    auto_flush=auto_flush,
+                    isolation_level=isolation_level
+                ) as session:
+                    return _inject_session_parameter(func, session, args, kwargs)
+            
+            return wrapper
     return decorator
 
 
@@ -299,24 +380,75 @@ def with_transaction(
         - :class:`DatabaseEngine`: Engine yönetimi
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
-            mgr = manager or get_database_manager()
+        # classmethod veya staticmethod desteği
+        if isinstance(func, classmethod):
+            # classmethod objesi ise __func__'e eriş
+            original_func = func.__func__
             
-            with mgr.engine.session_context(
-                auto_commit=True,
-                auto_flush=True,
-                isolation_level=isolation_level
-            ) as session:
-                # Session inject et
-                if savepoint and session.in_transaction():
-                    # Nested transaction için savepoint kullan
-                    with session.begin_nested():
-                        return _inject_session_parameter(func, session, args, kwargs)
-                else:
-                    return _inject_session_parameter(func, session, args, kwargs)
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=True,
+                    auto_flush=True,
+                    isolation_level=isolation_level
+                ) as session:
+                    # Session inject et
+                    if savepoint and session.in_transaction():
+                        # Nested transaction için savepoint kullan
+                        with session.begin_nested():
+                            return _inject_session_parameter(original_func, session, args, kwargs)
+                    else:
+                        return _inject_session_parameter(original_func, session, args, kwargs)
+            
+            # classmethod olarak döndür
+            return classmethod(wrapper)
         
-        return wrapper
+        elif isinstance(func, staticmethod):
+            # staticmethod objesi ise __func__'e eriş
+            original_func = func.__func__
+            
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=True,
+                    auto_flush=True,
+                    isolation_level=isolation_level
+                ) as session:
+                    # Session inject et
+                    if savepoint and session.in_transaction():
+                        # Nested transaction için savepoint kullan
+                        with session.begin_nested():
+                            return _inject_session_parameter(original_func, session, args, kwargs)
+                    else:
+                        return _inject_session_parameter(original_func, session, args, kwargs)
+            
+            # staticmethod olarak döndür
+            return staticmethod(wrapper)
+        
+        else:
+            # Normal fonksiyon
+            @wraps(func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=True,
+                    auto_flush=True,
+                    isolation_level=isolation_level
+                ) as session:
+                    # Session inject et
+                    if savepoint and session.in_transaction():
+                        # Nested transaction için savepoint kullan
+                        with session.begin_nested():
+                            return _inject_session_parameter(func, session, args, kwargs)
+                    else:
+                        return _inject_session_parameter(func, session, args, kwargs)
+            
+            return wrapper
     return decorator
 
 
@@ -431,19 +563,52 @@ def with_readonly_session(
         - :class:`DatabaseEngine`: Engine yönetimi
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
-            mgr = manager or get_database_manager()
+        # classmethod veya staticmethod desteği
+        if isinstance(func, classmethod):
+            original_func = func.__func__
             
-            with mgr.engine.session_context(
-                auto_commit=False,
-                auto_flush=False,
-                isolation_level=None  # Varsayılan isolation level kullan
-            ) as session:
-                # Session inject et
-                return _inject_session_parameter(func, session, args, kwargs)
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=False,
+                    auto_flush=False,
+                    isolation_level=None
+                ) as session:
+                    return _inject_session_parameter(original_func, session, args, kwargs)
+            
+            return classmethod(wrapper)
         
-        return wrapper
+        elif isinstance(func, staticmethod):
+            original_func = func.__func__
+            
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=False,
+                    auto_flush=False,
+                    isolation_level=None
+                ) as session:
+                    return _inject_session_parameter(original_func, session, args, kwargs)
+            
+            return staticmethod(wrapper)
+        
+        else:
+            @wraps(func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                with mgr.engine.session_context(
+                    auto_commit=False,
+                    auto_flush=False,
+                    isolation_level=None
+                ) as session:
+                    return _inject_session_parameter(func, session, args, kwargs)
+            
+            return wrapper
     return decorator
 
 
@@ -592,55 +757,151 @@ def with_retry_session(
         - :class:`DatabaseEngine`: Engine yönetimi
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
-            mgr = manager or get_database_manager()
-            last_exception: Optional[Exception] = None
+        # classmethod veya staticmethod desteği
+        if isinstance(func, classmethod):
+            original_func = func.__func__
             
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    with mgr.engine.session_context(
-                        auto_commit=auto_commit,
-                        auto_flush=True
-                    ) as session:
-                        # Session inject et
-                        result = _inject_session_parameter(func, session, args, kwargs)
-                        
-                        if attempt > 1:
-                            print(f"[INFO] {func.__name__} succeeded on attempt {attempt}/{max_attempts}")
-                        
-                        return result
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                last_exception: Optional[Exception] = None
                 
-                except (OperationalError, DBAPIError, DatabaseQueryError) as e:
-                    last_exception = e
-                    error_msg = str(e).lower()
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        with mgr.engine.session_context(
+                            auto_commit=auto_commit,
+                            auto_flush=True
+                        ) as session:
+                            result = _inject_session_parameter(original_func, session, args, kwargs)
+                            
+                            if attempt > 1:
+                                print(f"[INFO] {original_func.__name__} succeeded on attempt {attempt}/{max_attempts}")
+                            
+                            return result
                     
-                    # Deadlock tespiti
-                    is_deadlock = any(
-                        indicator in error_msg 
-                        for indicator in ['deadlock', 'lock timeout', 'lock wait timeout']
-                    )
+                    except (OperationalError, DBAPIError, DatabaseQueryError) as e:
+                        last_exception = e
+                        error_msg = str(e).lower()
+                        
+                        is_deadlock = any(
+                            indicator in error_msg 
+                            for indicator in ['deadlock', 'lock timeout', 'lock wait timeout']
+                        )
+                        
+                        if not is_deadlock or attempt >= max_attempts:
+                            print(f"[ERROR] {original_func.__name__} failed after {attempt} attempts: {e}")
+                            raise
+                        
+                        import time
+                        wait_time = delay * (backoff ** (attempt - 1))
+                        print(f"[WARNING] {original_func.__name__} deadlock on attempt {attempt}, "
+                              f"retrying in {wait_time:.2f}s")
+                        time.sleep(wait_time)
                     
-                    if not is_deadlock or attempt >= max_attempts:
-                        print(f"[ERROR] {func.__name__} failed after {attempt} attempts: {e}")
-                        raise  # session_context'te wrap edilecek
-                    
-                    # Retry bekleme
-                    import time
-                    wait_time = delay * (backoff ** (attempt - 1))
-                    print(f"[WARNING] {func.__name__} deadlock on attempt {attempt}, "
-                          f"retrying in {wait_time:.2f}s")
-                    time.sleep(wait_time)
+                    except SQLAlchemyError as e:
+                        print(f"[ERROR] {original_func.__name__} non-retryable error: {e}")
+                        raise
                 
-                except SQLAlchemyError as e:
-                    print(f"[ERROR] {func.__name__} non-retryable error: {e}")
-                    raise  # Direkt raise, double wrapping yok
+                print(f"[CRITICAL] Unexpected retry flow for {original_func.__name__}")
+                raise last_exception or RuntimeError("Unexpected retry flow")
             
-            # Bu noktaya ulaşılmamalı
-            print(f"[CRITICAL] Unexpected retry flow for {func.__name__}")
-            raise last_exception or RuntimeError("Unexpected retry flow")
+            return classmethod(wrapper)
         
-        return wrapper
+        elif isinstance(func, staticmethod):
+            original_func = func.__func__
+            
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                last_exception: Optional[Exception] = None
+                
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        with mgr.engine.session_context(
+                            auto_commit=auto_commit,
+                            auto_flush=True
+                        ) as session:
+                            result = _inject_session_parameter(original_func, session, args, kwargs)
+                            
+                            if attempt > 1:
+                                print(f"[INFO] {original_func.__name__} succeeded on attempt {attempt}/{max_attempts}")
+                            
+                            return result
+                    
+                    except (OperationalError, DBAPIError, DatabaseQueryError) as e:
+                        last_exception = e
+                        error_msg = str(e).lower()
+                        
+                        is_deadlock = any(
+                            indicator in error_msg 
+                            for indicator in ['deadlock', 'lock timeout', 'lock wait timeout']
+                        )
+                        
+                        if not is_deadlock or attempt >= max_attempts:
+                            print(f"[ERROR] {original_func.__name__} failed after {attempt} attempts: {e}")
+                            raise
+                        
+                        import time
+                        wait_time = delay * (backoff ** (attempt - 1))
+                        print(f"[WARNING] {original_func.__name__} deadlock on attempt {attempt}, "
+                              f"retrying in {wait_time:.2f}s")
+                        time.sleep(wait_time)
+                    
+                    except SQLAlchemyError as e:
+                        print(f"[ERROR] {original_func.__name__} non-retryable error: {e}")
+                        raise
+                
+                print(f"[CRITICAL] Unexpected retry flow for {original_func.__name__}")
+                raise last_exception or RuntimeError("Unexpected retry flow")
+            
+            return staticmethod(wrapper)
+        
+        else:
+            @wraps(func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                last_exception: Optional[Exception] = None
+                
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        with mgr.engine.session_context(
+                            auto_commit=auto_commit,
+                            auto_flush=True
+                        ) as session:
+                            result = _inject_session_parameter(func, session, args, kwargs)
+                            
+                            if attempt > 1:
+                                print(f"[INFO] {func.__name__} succeeded on attempt {attempt}/{max_attempts}")
+                            
+                            return result
+                    
+                    except (OperationalError, DBAPIError, DatabaseQueryError) as e:
+                        last_exception = e
+                        error_msg = str(e).lower()
+                        
+                        is_deadlock = any(
+                            indicator in error_msg 
+                            for indicator in ['deadlock', 'lock timeout', 'lock wait timeout']
+                        )
+                        
+                        if not is_deadlock or attempt >= max_attempts:
+                            print(f"[ERROR] {func.__name__} failed after {attempt} attempts: {e}")
+                            raise
+                        
+                        import time
+                        wait_time = delay * (backoff ** (attempt - 1))
+                        print(f"[WARNING] {func.__name__} deadlock on attempt {attempt}, "
+                              f"retrying in {wait_time:.2f}s")
+                        time.sleep(wait_time)
+                    
+                    except SQLAlchemyError as e:
+                        print(f"[ERROR] {func.__name__} non-retryable error: {e}")
+                        raise
+                
+                print(f"[CRITICAL] Unexpected retry flow for {func.__name__}")
+                raise last_exception or RuntimeError("Unexpected retry flow")
+            
+            return wrapper
     return decorator
 
 
@@ -758,19 +1019,50 @@ def inject_session(
         - :class:`DatabaseEngine`: Engine yönetimi
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
-            mgr = manager or get_database_manager()
+        # classmethod veya staticmethod desteği
+        if isinstance(func, classmethod):
+            original_func = func.__func__
             
-            # Eğer session zaten verilmişse, kullan
-            if parameter_name in kwargs and kwargs[parameter_name] is not None:
-                return func(*args, **kwargs)
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                if parameter_name in kwargs and kwargs[parameter_name] is not None:
+                    return original_func(*args, **kwargs)
+                
+                with mgr.engine.session_context() as session:
+                    kwargs[parameter_name] = session
+                    return original_func(*args, **kwargs)
             
-            # Session inject et
-            with mgr.engine.session_context() as session:
-                kwargs[parameter_name] = session
-                return func(*args, **kwargs)
+            return classmethod(wrapper)
         
-        return wrapper
+        elif isinstance(func, staticmethod):
+            original_func = func.__func__
+            
+            @wraps(original_func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                if parameter_name in kwargs and kwargs[parameter_name] is not None:
+                    return original_func(*args, **kwargs)
+                
+                with mgr.engine.session_context() as session:
+                    kwargs[parameter_name] = session
+                    return original_func(*args, **kwargs)
+            
+            return staticmethod(wrapper)
+        
+        else:
+            @wraps(func)
+            def wrapper(*args, **kwargs) -> T:
+                mgr = manager or get_database_manager()
+                
+                if parameter_name in kwargs and kwargs[parameter_name] is not None:
+                    return func(*args, **kwargs)
+                
+                with mgr.engine.session_context() as session:
+                    kwargs[parameter_name] = session
+                    return func(*args, **kwargs)
+            
+            return wrapper
     return decorator
-

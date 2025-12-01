@@ -1051,7 +1051,8 @@ class DatabaseEngine:
             
             # Veritabanı hatası ise bağlamla yeniden fırlat
             if isinstance(e, (SQLAlchemyError, OperationalError, DBAPIError)):
-                error = DatabaseQueryError()
+                error_message = f"Database query failed: {type(e).__name__}: {str(e)}"
+                error = DatabaseQueryError(message=error_message)
                 self._log_error("session_context", error)
                 raise error
             

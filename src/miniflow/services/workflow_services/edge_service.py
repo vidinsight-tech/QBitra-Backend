@@ -255,7 +255,7 @@ class EdgeService:
         
         return {
             "deleted": True,
-            "edge_id": edge_id
+            "id": edge_id
         }
 
     @with_readonly_session(manager=None)

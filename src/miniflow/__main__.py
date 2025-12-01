@@ -5,516 +5,260 @@ Terminal üzerinden sunucuyu yönetmek için iki mod:
 - setup: İlk kurulum (dosya yapısı, veritabanı, seed, handler testleri)
 - run: Uygulamayı başlat (FastAPI app, middleware, routes, server)
 """
-import sys
+# ============================================================================
+# STANDARD LIBRARY IMPORTS
+# ============================================================================
 import os
+import sys
+import time
+import traceback
+import warnings
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Optional
 
-# Help komutunu import'lardan önce kontrol et
+# ============================================================================
+# THIRD-PARTY IMPORTS
+# ============================================================================
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.pool import NullPool
+
+# ============================================================================
+# SEEDS
+# ============================================================================
+from seeds.agreement_seeds import AGREEMENT_SEEDS
+from seeds.user_role_seeds import USER_ROLES_SEED
+from seeds.workflow_plan_seeds import WORKSPACE_PLANS_SEED
+from seeds.global_script_seeds import GLOBAL_SCRIPT_SEEDS
+
+# ============================================================================
+# CORE
+# ============================================================================
+from src.miniflow.core.exceptions import (
+    InternalError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
+
+# ============================================================================
+# DATABASE
+# ============================================================================
+from src.miniflow.database import (
+    DatabaseManager,
+    get_mysql_config,
+    get_postgresql_config,
+    get_sqlite_config,
+)
+
+# ============================================================================
+# SERVICES
+# ============================================================================
+from src.miniflow.services.info_services.agreement_service import AgreementService
+from src.miniflow.services.info_services.user_roles_service import UserRolesService
+from src.miniflow.services.info_services.workspace_plans_service import (
+    WorkspacePlansService,
+)
+from src.miniflow.services.script_services.global_script_service import GlobalScriptService
+
+# ============================================================================
+# UTILS
+# ============================================================================
+from src.miniflow.utils import ConfigurationHandler, EnvironmentHandler, RedisClient
+from src.miniflow.utils.helpers.file_helper import create_resources_folder
+
+# ============================================================================
+# EARLY EXIT FOR HELP
+# ============================================================================
 if len(sys.argv) > 1 and sys.argv[1].lower() in ("help", "--help", "-h"):
     print("\n" + "=" * 70)
     print("MINIFLOW ENTERPRISE - Available Commands".center(70))
     print("=" * 70)
-    print("\n  setup      Initial setup (create database, seed data, test handlers)")
-    print("  run        Start the application (default)")
+    print("\n  setup      Initial setup (database, seed data, tests)")
+    print("  run        Start application (default)")
     print("  help       Show this help message")
     print("\nExamples:")
     print("  python -m src.miniflow setup")
     print("  python -m src.miniflow run")
-    print("  python -m src.miniflow        # 'run' command (default)\n")
+    print("  python -m src.miniflow        # defaults to 'run'\n")
     sys.exit(0)
-
-from typing import Optional
-from contextlib import asynccontextmanager
-from pathlib import Path
-from sqlalchemy import text, inspect
-
-from seeds.workflow_plan_seeds import WORKSPACE_PLANS_SEED
-from seeds.user_role_seeds import USER_ROLES_SEED
-from seeds.agreement_seeds import AGREEMENT_SEEDS
-
-from src.miniflow.utils import EnvironmentHandler, ConfigurationHandler, RedisClient
-from src.miniflow.core.exceptions import InvalidInputError, ResourceNotFoundError, InternalError
-from src.miniflow.database import get_sqlite_config, get_postgresql_config, get_mysql_config
-from src.miniflow.database import DatabaseManager
-from src.miniflow.utils.helpers.file_helper import create_resources_folder
-from src.miniflow.services.info_services.user_roles_service import UserRolesService
-from src.miniflow.services.info_services.workspace_plans_service import WorkspacePlansService
-from src.miniflow.services.info_services.agreement_service import AgreementService
 
 
 class MiniFlow:
-    """
-    MiniFlow Enterprise uygulama yöneticisi.
-    
-    İki mod destekler:
-    - setup: İlk kurulum ve hazırlık
-    - run: Uygulamayı başlat
-    """
-    
+    """MiniFlow Enterprise uygulama yöneticisi."""
+
     def __init__(self):
         """Temel initialization"""
-        # Ortam ve veritabanı tipi (henüz initialize edilmemiş)
         self._app_env: Optional[str] = None
         self._db_type: Optional[str] = None
-
-        # Database Manager
         self._db_manager: Optional[DatabaseManager] = None
-
-        # Çalışma Durumu
         self.is_running = False
 
-        # Seed Services (lazy initialization)
+        # Lazy initialization için seed services
         self._user_role_service: Optional[UserRolesService] = None
         self._workspace_plan_service: Optional[WorkspacePlansService] = None
         self._agreement_service: Optional[AgreementService] = None
+        self._global_script_service: Optional[GlobalScriptService] = None
 
-        # Başlatma işlemleri
-        self._startup_initialization()
+        self._initialize()
 
-    def _startup_initialization(self):
-        """Uygulama başlatma işlemlerini yürütür"""
-        # 1. Configuration'ları yükle
-        self._setup_config()
-        
-        # 2. Ortam ve veritabanı tipini ayarla
+    # ========================================================================
+    # INITIALIZATION
+    # ========================================================================
+
+    def _initialize(self):
+        """Uygulama başlangıç ayarları"""
+        self._print_header("MINIFLOW STARTUP INITIALIZATION")
+
+        try:
+            self._load_configurations()
+            self._set_environment_vars()
+            self._print_success("STARTUP INITIALIZATION COMPLETED")
+
+        except (ResourceNotFoundError, InternalError) as e:
+            self._handle_initialization_error(e)
+        except Exception as e:
+            self._handle_unexpected_error(e, "startup initialization")
+
+    def _load_configurations(self):
+        """Tüm konfigürasyonları yükle"""
+        steps = [
+            ("Loading environment variables", EnvironmentHandler.load_env),
+            ("Loading configuration files", ConfigurationHandler.load_config),
+            ("Initializing Redis connection", RedisClient.initialize),
+            ("Creating resources folder", create_resources_folder),
+        ]
+
+        for i, (description, action) in enumerate(steps, 1):
+            print(f"[{i}/{len(steps)}] {description}...", end=" ", flush=True)
+            action()
+            print("[OK]")
+
+    def _set_environment_vars(self):
+        """Ortam değişkenlerini ayarla ve doğrula"""
         self._app_env = EnvironmentHandler.get("APP_ENV", "").lower()
         self._db_type = EnvironmentHandler.get("DB_TYPE", "").lower()
-        
+
         if not self._app_env:
-            raise InternalError(
-                component_name="miniflow",
-                message="APP_ENV environment variable is not set."
-            )
-        
+            raise InternalError("miniflow", "APP_ENV environment variable is not set")
         if not self._db_type:
-            raise InternalError(
-                component_name="miniflow",
-                message="DB_TYPE environment variable is not set."
-            )
+            raise InternalError("miniflow", "DB_TYPE environment variable is not set")
 
-    @property
-    def _env(self):
-        """EnvironmentHandler'a erişim için property"""
-        return EnvironmentHandler
-
-    @property
-    def _config(self):
-        """ConfigurationHandler'a erişim için property"""
-        return ConfigurationHandler
-
-    def _setup_config(self):
-        """Initialize application configuration, environment, and external services."""
-        print("\n" + "=" * 70)
-        print("MINIFLOW STARTUP INITIALIZATION".center(70))
-        print("=" * 70 + "\n")
-
-        try:
-            # 1. Load environment variables
-            print("[1/4] Loading environment variables...", end=" ", flush=True)
-            EnvironmentHandler.load_env()
-            print("✓ OK")
-            
-            # 2. Load configuration files
-            print("[2/4] Loading configuration files...", end=" ", flush=True)
-            ConfigurationHandler.load_config()
-            print("✓ OK")
-            
-            # 3. Initialize Redis connection
-            print("[3/4] Initializing Redis connection...", end=" ", flush=True)
-            RedisClient.initialize()
-            print("✓ OK")
-
-            # 4. Create resources folder
-            print("[4/4] Creating resources folder...", end=" ", flush=True)
-            create_resources_folder()
-            print("✓ OK")
-            
-            print("\n" + "=" * 70)
-            print("STARTUP INITIALIZATION COMPLETED SUCCESSFULLY".center(70))
-            print("=" * 70 + "\n")
-            
-        except ResourceNotFoundError as e:
-            self._print_error_header("RESOURCE NOT FOUND")
-            print(f"Error: {e.error_message}")
-            resource_info = f"{e.resource_name}"
-            if e.resource_id:
-                resource_info += f" (ID: {e.resource_id})"
-            print(f"Resource: {resource_info}")
-            if e.error_details:
-                print(f"Details: {e.error_details}")
-            print("\n" + "-" * 70)
-            print("Troubleshooting:")
-            print("  • Verify the resource path and file permissions")
-            print("  • Check if the resource exists in the expected location")
-            print("  • Ensure proper file/directory access rights")
-            print("-" * 70)
-            sys.exit(1)
-        
-        except InternalError as e:
-            self._print_error_header("INITIALIZATION ERROR")
-            print(f"Component: {e.component_name}")
-            print(f"Error: {e.error_message}")
-            
-            if e.error_details:
-                if isinstance(e.error_details, dict):
-                    if 'host' in e.error_details and 'port' in e.error_details:
-                        print(f"Redis Address: {e.error_details['host']}:{e.error_details['port']}")
-                    elif 'original_error' in e.error_details:
-                        print(f"Original Error: {e.error_details['original_error']}")
-                    else:
-                        print(f"Details: {e.error_details}")
-                else:
-                    print(f"Details: {e.error_details}")
-            
-            print("\n" + "-" * 70)
-            print("Troubleshooting:")
-            
-            if e.component_name == "environment_handler":
-                print("  • Verify environment variables are correctly set")
-                print("  • Check .env file exists in the project root")
-                print("  • Ensure TEST_KEY is set to 'ThisKeyIsForConfigTest'")
-                print("  • Verify environment file path is correct")
-            elif e.component_name == "configuration_handler":
-                print("  • Verify configuration files exist in 'configurations/' directory")
-                print("  • Check configuration file format (INI format)")
-                print("  • Ensure [Test] section with value='ThisKeyIsForConfigTest' exists")
-                print("  • Verify APP_ENV matches available config files (dev/prod/local/test)")
-            elif e.component_name == "redis_client":
-                print("  • Verify Redis server is running (redis-server)")
-                print("  • Check Redis host and port settings in configuration")
-                print("  • Ensure firewall allows Redis port access")
-                print("  • Test connection: redis-cli ping")
-            elif e.component_name == "database_manager":
-                print("  • Verify database configuration settings")
-                print("  • Check database server is running and accessible")
-                print("  • Ensure database credentials are correct")
-                print("  • Verify database connection string format")
-            else:
-                print("  • Review application logs for detailed error information")
-                print("  • Contact system administrator if issue persists")
-            
-            print("-" * 70)
-            sys.exit(1)
-        
-        except Exception as e:
-            self._print_error_header("UNEXPECTED ERROR")
-            print(f"Error Type: {type(e).__name__}")
-            print(f"Error Message: {str(e)}")
-            print("\n" + "-" * 70)
-            print("An unexpected error occurred during startup initialization.")
-            print("Please review the application logs and contact system administrator.")
-            print("-" * 70)
-            sys.exit(1)
-
-    @property
-    def is_development(self) -> bool:
-        """Development ortamında mı?"""
-        return 'dev' in self._app_env
-
-    @property
-    def is_production(self) -> bool:
-        """Production ortamında mı?"""
-        return 'prod' in self._app_env
-    
-    def _get_db_config(self):
-        """Veritabanı yapılandırmasını oluştur"""
-        if self._db_type == "sqlite":
-            sqlite_path = self._config.get("Database", "db_path", "./miniflow.db")
-            return get_sqlite_config(database_name=sqlite_path)
-        
-        elif self._db_type == "postgresql":
-            params = {
-                'database_name': self._config.get("Database", "db_name", "miniflow"),
-                'host': self._config.get("Database", "db_host", "localhost"),
-                'port': self._config.get_int("Database", "db_port", 5432),
-                'username': self._config.get("Database", "db_user", "postgres"),
-                'password': self._config.get("Database", "db_password", ""),
-            }
-            return get_postgresql_config(**params)
-        
-        elif self._db_type == "mysql":
-            params = {
-                'database_name': self._config.get("Database", "db_name", "miniflow"),
-                'host': self._config.get("Database", "db_host", "localhost"),
-                'port': self._config.get_int("Database", "db_port", 3306),
-                'username': self._config.get("Database", "db_user", "root"),
-                'password': self._config.get("Database", "db_password", ""),
-            }
-            return get_mysql_config(**params)
-        else:
-            raise InvalidInputError(field_name="DB_TYPE")
-        
-    def _print_error_header(self, error_type: str):
-        """Print formatted error header."""
-        print("\n" + "=" * 70)
-        print(f"❌ {error_type}".center(70))
-        print("=" * 70)
-
-    # ============================================================================
+    # ========================================================================
     # SETUP MODE
-    # ============================================================================
+    # ========================================================================
 
     def setup(self):
-        """
-        İlk kurulum: Tüm gerekli kontrolleri yapar ve sistemi hazırlar.
-        - Dosya yapısı kontrolü
-        - Veritabanı oluşturma
-        - Seed veriler
-        - Handler testleri
-        """
-        print("\n" + "=" * 70)
-        print("MINIFLOW SETUP MODE".center(70))
-        print("=" * 70 + "\n")
-        
+        """İlk kurulum ve sistem hazırlama"""
+        self._print_header("MINIFLOW SETUP MODE")
+
         try:
-            # 1. Dosya yapısı kontrolü
             self._check_file_structure()
-            
-            # 2. Veritabanı oluşturma
             self._setup_database()
-            
-            # 3. Seed veriler
             self._seed_initial_data()
-            
-            # 4. Handler testleri
             self._test_handlers()
-            
-            print("\n" + "=" * 70)
-            print("✅ SETUP COMPLETED SUCCESSFULLY".center(70))
-            print("=" * 70)
-            print("\nArtık uygulamayı başlatabilirsiniz:")
-            print("  python -m src.miniflow run\n")
-            
+
+            self._print_success("SETUP COMPLETED")
+            print("Uygulamayı başlatmak için: python -m src.miniflow run\n")
+
         except Exception as e:
-            self._print_error_header("SETUP ERROR")
-            print(f"Error Type: {type(e).__name__}")
-            print(f"Error Message: {str(e)}")
-            print("\n" + "-" * 70)
-            print("Setup işlemi başarısız oldu. Lütfen yukarıdaki hataları kontrol edin.")
-            print("-" * 70)
+            self._print_error("SETUP ERROR", f"{type(e).__name__}: {str(e)}")
+            print("\nSetup işlemi başarısız oldu. Lütfen yukarıdaki hataları kontrol edin.\n")
             raise
         finally:
-            # Setup sonrası bağlantıyı kapat
-            if self._db_manager and self._db_manager.is_started:
-                self._db_manager.engine.stop()
-                print("[SETUP] Database connection closed")
+            self._cleanup_database()
 
     def _check_file_structure(self):
-        """
-        Gerekli dosya ve klasörlerin varlığını kontrol eder.
-        """
+        """Dosya yapısı kontrolü"""
         print("[1/4] Checking file structure...", end=" ", flush=True)
-        
-        # Resources klasörü oluştur
+
         create_resources_folder()
-        
-        # Diğer kontroller
-        required_paths = [
-            Path("configurations"),
-            Path("seeds"),
-        ]
-        
+
+        required_paths = [Path("configurations"), Path("seeds")]
         missing = [p for p in required_paths if not p.exists()]
+
         if missing:
             raise ResourceNotFoundError(
-                resource_name="required_directories",
-                message=f"Missing required directories: {', '.join(str(p) for p in missing)}"
+                "required_directories",
+                message=f"Missing: {', '.join(str(p) for p in missing)}"
             )
-        
-        # .env dosyası kontrolü (opsiyonel, sadece warning)
+
         if not Path(".env").exists():
-            print("\n⚠ WARNING: .env file not found. Make sure environment variables are set.")
-        
-            print("✓ OK")
+            print("\n      [WARNING] .env file not found", end="")
+
+        print(" [OK]")
 
     def _setup_database(self):
-        """
-        Veritabanını oluşturur ve tabloları hazırlar.
-        """
+        """Veritabanı kurulumu"""
         print("[2/4] Setting up database...", end=" ", flush=True)
-        
+
         db_config = self._get_db_config()
         self._db_manager = DatabaseManager()
         self._db_manager.initialize(db_config, auto_start=True, create_tables=True)
-        
-        # Bağlantı testi
-        if not self._test_database_connection():
-                    raise InternalError(
-                        component_name="database_manager",
-                message="Database connection test failed"
-            )
-        
-        print("✓ OK")
-            
-    def _test_database_connection(self) -> bool:
-        """Test database connection and verify tables exist."""
-        if not self._db_manager or not self._db_manager.is_initialized:
-            return False
-        
-        engine = self._db_manager.engine._engine
-        try: 
-            with engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
-                inspector = inspect(engine)
-                tables = inspector.get_table_names()
-                return len(tables) > 0
-        except Exception:
-            return False
-    
+
+        if not self._test_db_connection():
+            raise InternalError("database_manager", "Database connection test failed")
+
+        print("[OK]")
+
     def _seed_initial_data(self):
-        """
-        Başlangıç verilerini ekler (roller, planlar, sözleşmeler).
-        """
+        """Başlangıç verilerini ekle"""
         print("[3/4] Seeding initial data...", end=" ", flush=True)
-        
+
         if not self._db_manager or not self._db_manager.is_initialized:
-            raise RuntimeError("Database Manager is not initialized. Call _setup_database() first.")
-        
+            raise RuntimeError("Database Manager not initialized")
+
         self._initialize_seed_services()
-        
-        # Kullanıcı rolleri
+
         role_stats = self._user_role_service.seed_role(roles_data=USER_ROLES_SEED)
-        
-        # Çalışma alanı planları
         plan_stats = self._workspace_plan_service.seed_plan(plans_data=WORKSPACE_PLANS_SEED)
-        
-        # Sözleşmeler
         agreement_stats = self._agreement_service.seed_agreement(agreements_data=AGREEMENT_SEEDS)
-        
-        print("✓ OK")
-        print(f"   - Roles: {role_stats['created']} created, {role_stats['skipped']} skipped")
-        print(f"   - Plans: {plan_stats['created']} created, {plan_stats['skipped']} skipped")
-        print(f"   - Agreements: {agreement_stats['created']} created, {agreement_stats['updated']} updated, {agreement_stats['skipped']} skipped")
+        script_stats = self._global_script_service.seed_script(scripts_data=GLOBAL_SCRIPT_SEEDS)
+
+        print("[OK]")
+        print(f"      • Roles: {role_stats['created']} created, {role_stats['skipped']} skipped")
+        print(f"      • Plans: {plan_stats['created']} created, {plan_stats['skipped']} skipped")
+        print(f"      • Agreements: {agreement_stats['created']} created, {agreement_stats['skipped']} skipped")
+        print(f"      • Global Scripts: {script_stats['created']} created, {script_stats['skipped']} skipped")
 
     def _test_handlers(self):
-        """
-        External handler'ları test eder (Redis, Mail).
-        """
+        """Handler testleri"""
         print("[4/4] Testing handlers...", end=" ", flush=True)
-        
-        # Redis testi
+
+        # Redis test
         try:
             RedisClient._client.ping()
-            print("✓ Redis OK", end=" ")
+            print("[OK] Redis", end=" ")
         except Exception as e:
-            raise InternalError(
-                component_name="redis_client",
-                message=f"Redis test failed: {str(e)}",
-                error_details={"original_error": str(e)}
-            )
-        
-        # Mail testi (opsiyonel - sadece initialize kontrolü)
+            raise InternalError("redis_client", f"Redis test failed: {str(e)}")
+
+        # Mail test (opsiyonel)
         try:
             from src.miniflow.utils.handlers.mailtrap_handler import MailTrapClient
             MailTrapClient.initialize()
-            print("✓ Mail OK")
-        except Exception as e:
-            # Mail opsiyonel olabilir, sadece warning ver
-            print("⚠ Mail warning (optional)")
+            print("• Mail [OK]")
+        except:
+            print("• Mail [OPTIONAL]")
 
-    def _initialize_seed_services(self):
-        """Initialize seed services"""
-        if not self._user_role_service:
-            self._user_role_service = UserRolesService()
-        if not self._workspace_plan_service:
-            self._workspace_plan_service = WorkspacePlansService()
-        if not self._agreement_service:
-            self._agreement_service = AgreementService()
-
-    # ============================================================================
+    # ========================================================================
     # RUN MODE
-    # ============================================================================
+    # ========================================================================
 
     def run(self):
-        """
-        Uygulamayı başlatır (veritabanı hazır olmalı).
-        """
-        print("\n" + "=" * 70)
-        print("MINIFLOW RUN MODE".center(70))
-        print("=" * 70 + "\n")
-        
-        # Veritabanı hazır mı kontrol et
+        """Uygulamayı başlat"""
+        self._print_header("MINIFLOW RUN MODE")
+
         if not self._is_database_ready():
-            print("\n❌ Database is not ready!")
-            print("Please run setup first: python -m src.miniflow setup")
+            self._print_error("DATABASE NOT READY",
+                            "Please run setup first: python -m src.miniflow setup")
             sys.exit(1)
-        
-        # FastAPI app oluştur
-        app = self.create_fastapi_app()
-        
-        # Sunucuyu başlat
-        self.start_server(app)
 
-    def _is_database_ready(self) -> bool:
-        """
-        Veritabanı hazır mı kontrol et (tablolar var mı?).
-        """
-        try:
-            manager = DatabaseManager()
-            if manager.is_initialized and manager.is_started:
-                inspector = inspect(manager.engine._engine)
-                tables = inspector.get_table_names()
-                return len(tables) > 0
-            
-            # İlk kez kontrol - geçici engine kullan
-            from sqlalchemy import create_engine
-            from sqlalchemy.pool import NullPool
-            db_config = self._get_db_config()
-            db_url = db_config.get_connection_string()
-            
-            # NullPool kullan (connection pool oluşturma)
-            engine = create_engine(db_url, echo=False, poolclass=NullPool)
-            
-            try:
-                with engine.connect() as connection:
-                    # Bağlantı testi
-                    connection.execute(text("SELECT 1"))
-                    
-                    # Tablo kontrolü
-                    inspector = inspect(engine)
-                    tables = inspector.get_table_names()
-                    result = len(tables) > 0
-                    if self.is_development and not result:
-                        print(f"[DEBUG] Database check: {len(tables)} tables found")
-                    return result
-            finally:
-                engine.dispose()
-                
-        except Exception as e:
-            if self.is_development:
-                print(f"[DEBUG] Database ready check failed: {type(e).__name__}: {str(e)}")
-            return False
+        app = self._create_fastapi_app()
+        self._start_server(app)
 
-    def create_fastapi_app(self):
-        """
-        FastAPI uygulamasını oluştur ve yapılandır.
-        """
+    def _create_fastapi_app(self):
+        """FastAPI uygulaması oluştur"""
         from fastapi import FastAPI
-        from fastapi.middleware.cors import CORSMiddleware
-        
-        @asynccontextmanager
-        async def lifespan(app: FastAPI):
-            """Lifespan yönetimi (startup/shutdown)"""
-            worker_pid = os.getpid()
-            manager = None
-            
-            try:
-                # Startup
-                manager = self._worker_startup(worker_pid)
-                print(f"[WORKER-{worker_pid}] Ready")
-                yield
-            except Exception as e:
-                print(f"[WORKER-{worker_pid}] Error: {e}")
-                raise
-            finally:
-                # Shutdown
-                if manager:
-                    try:
-                        self._worker_shutdown(worker_pid, manager)
-                        print(f"[WORKER-{worker_pid}] Shutdown complete")
-                    except Exception as e:
-                        print(f"[WORKER-{worker_pid}] Shutdown error: {e}")
 
-        # FastAPI app oluştur
         app = FastAPI(
             title=self._config.get("Server", "title", "MiniFlow API"),
             description=self._config.get("Server", "description", "MiniFlow Application"),
@@ -522,280 +266,436 @@ class MiniFlow:
             docs_url="/docs" if not self.is_production else None,
             redoc_url="/redoc" if not self.is_production else None,
             openapi_url="/openapi.json" if not self.is_production else None,
-            lifespan=lifespan,
+            lifespan=self._app_lifespan,
         )
 
-        # CORS
-        self._add_cors_middleware(app)
-        
-        # Middleware'ler
-        self._add_middleware(app)
-        
-        # Exception handler'lar
-        self._add_exception_handlers(app)
-        
-        # Route'lar
-        self._add_routes(app)
-        
+        self._configure_middleware(app)
+        self._configure_exception_handlers(app)
+        self._configure_routes(app)
+
         return app
 
-    def _add_cors_middleware(self, app):
-        """CORS middleware ekle"""
-        from fastapi.middleware.cors import CORSMiddleware
-        
-        allowed_origins = self._config.get_list("Server", "allowed_origins", "*")
-        if isinstance(allowed_origins, str):
-            allowed_origins = [allowed_origins]
+    @asynccontextmanager
+    async def _app_lifespan(self, app):
+        """App lifecycle yönetimi"""
+        worker_pid = os.getpid()
+        state = None
 
+        try:
+            state = self._worker_startup(worker_pid)
+            yield
+        except Exception as e:
+            print(f"[WORKER-{worker_pid}] [ERROR] Startup failed: {e}")
+            if state:
+                self._worker_shutdown(worker_pid, state, force=True)
+            raise
+        finally:
+            if state:
+                self._worker_shutdown(worker_pid, state)
+
+    def _worker_startup(self, pid: int) -> dict:
+        """Worker servisleri başlat"""
+        state = {}
+        services = [
+            ("Database", self._start_database),
+            ("Engine", self._start_engine),
+            ("Output Handler", self._start_output_handler),
+            ("Input Handler", self._start_input_handler),
+        ]
+
+        try:
+            for i, (name, starter) in enumerate(services, 1):
+                print(f"[WORKER-{pid}] [{i}/{len(services)}] Starting {name}...")
+                component = starter(state)
+                if component:
+                    state[name.lower().replace(" ", "_")] = component
+                print(f"[WORKER-{pid}] [{i}/{len(services)}] [OK] {name} started")
+
+            # Scheduler (opsiyonel)
+            self._start_scheduler(pid, state)
+
+            print(f"[WORKER-{pid}] [SUCCESS] All services started\n")
+            return state
+
+        except Exception as e:
+            print(f"[WORKER-{pid}] [ERROR] Startup failed: {e}")
+            self._worker_shutdown(pid, state, force=True)
+            raise
+
+    def _worker_shutdown(self, pid: int, state: dict, force: bool = False):
+        """Worker servisleri kapat"""
+        if not state:
+            return
+
+        prefix = "[FORCE] " if force else ""
+        print(f"\n[WORKER-{pid}] {prefix}Stopping services...")
+
+        # Ters sırada kapat
+        shutdown_order = ['input_handler', 'output_handler', 'engine', 'database', 'scheduler']
+
+        for i, service_key in enumerate(shutdown_order, 1):
+            if service := state.get(service_key):
+                service_name = service_key.replace("_", " ").title()
+                print(f"[WORKER-{pid}] {prefix}[{i}/{len(shutdown_order)}] Stopping {service_name}...")
+
+                try:
+                    self._stop_service(service, service_key)
+                    print(f"[WORKER-{pid}] {prefix}[{i}/{len(shutdown_order)}] [OK] {service_name} stopped")
+                except Exception as e:
+                    print(f"[WORKER-{pid}] {prefix}[{i}/{len(shutdown_order)}] [WARNING] {service_name}: {e}")
+
+        print(f"[WORKER-{pid}] {prefix}[SUCCESS] Shutdown complete\n")
+
+    def _start_server(self, app):
+        """Uvicorn sunucu başlat"""
+        import uvicorn
+
+        host = self._config.get("Server", "host", "0.0.0.0")
+        port = self._config.get_int("Server", "port", 8000)
+        reload = self._config.get_bool("Server", "reload", False) and self.is_development
+        workers = 1 if reload else self._config.get_int("Server", "workers", 1)
+
+        self._print_server_info(host, port, reload, workers)
+        self.is_running = True
+
+        if reload:
+            uvicorn.run("src.miniflow.app:app", host=host, port=port, reload=True)
+        else:
+            uvicorn.run(app, host=host, port=port, workers=workers)
+
+    # ========================================================================
+    # SERVICE STARTERS/STOPPERS
+    # ========================================================================
+
+    def _start_database(self, state: dict):
+        """Database başlat"""
+        db_manager = DatabaseManager()
+        if not db_manager.is_initialized:
+            db_manager.initialize(self._get_db_config(), auto_start=True, create_tables=False)
+        state['db_manager'] = db_manager
+        return db_manager
+
+    def _start_engine(self, state: dict):
+        """Engine başlat"""
+        from src.miniflow.engine.manager.engine_manager import EngineManager
+        engine = EngineManager()
+        if not engine.started:
+            engine.start()
+        state['engine_manager'] = engine
+        return engine
+
+    def _start_output_handler(self, state: dict):
+        """Output Handler başlat"""
+        from src.miniflow.handlers.execution_output_handler import ExecutionOutputHandler
+        ExecutionOutputHandler.start(state['engine_manager'])
+        return ExecutionOutputHandler
+
+    def _start_input_handler(self, state: dict):
+        """Input Handler başlat"""
+        from src.miniflow.handlers.execution_input_handler import ExecutionInputHandler
+        ExecutionInputHandler.start(state['engine_manager'])
+        return ExecutionInputHandler
+
+    def _start_scheduler(self, pid: int, state: dict):
+        """
+        Scheduler başlat (opsiyonel)
+        
+        Note: Scheduler functionality is handled by SchedulerForInputHandler and
+        SchedulerForOutputHandler which are used internally by the handlers.
+        This method is kept for compatibility but does nothing.
+        """
+        # Scheduler is handled internally by ExecutionInputHandler and ExecutionOutputHandler
+        # No separate scheduler service to start
+        pass
+
+    def _stop_service(self, service, service_key: str):
+        """Servisi durdur"""
+        if service_key == 'database':
+            time.sleep(0.5)  # Transaction'ların bitmesini bekle
+            if service.is_started:
+                if active := service.engine.get_active_session_count():
+                    service.engine.close_all_sessions()
+                service.engine.stop()
+        elif hasattr(service, 'shutdown'):
+            service.shutdown()
+        elif hasattr(service, 'stop'):
+            service.stop()
+
+    # ========================================================================
+    # MIDDLEWARE & ROUTES
+    # ========================================================================
+
+    def _configure_middleware(self, app):
+        """Middleware yapılandırması"""
+        from fastapi.middleware.cors import CORSMiddleware
+        from src.miniflow.server.middleware.request_id_handler import RequestIdMiddleware
+        from src.miniflow.server.middleware.rate_limit_handler import RateLimitMiddleware
+
+        # CORS
+        origins = self._config.get_list("Server", "allowed_origins", "*")
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=allowed_origins,
+            allow_origins=origins if isinstance(origins, list) else [origins],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
         )
 
-    def _add_middleware(self, app):
-        """
-        Middleware'leri ekle (sıra önemli).
-        """
-        from src.miniflow.server.middleware.request_id_handler import RequestIdMiddleware
-        from src.miniflow.server.middleware.rate_limit_handler import RateLimitMiddleware
-        
-        # 1. Request ID Middleware (en üstte)
+        # Request ID & Rate Limit
         app.add_middleware(RequestIdMiddleware)
-        
-        # 2. Rate Limit Middleware
         app.add_middleware(RateLimitMiddleware)
 
-    def _add_exception_handlers(self, app):
-        """
-        Exception handler'ları ekle (spesifikten genele).
-        """
-        import warnings
-        # HTTP_422_UNPROCESSABLE_ENTITY deprecation warning'ini suppress et
-        # FastAPI/Starlette'de henüz HTTP_422_UNPROCESSABLE_CONTENT mevcut değil
-        warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*HTTP_422_UNPROCESSABLE_ENTITY.*")
-        
+    def _configure_exception_handlers(self, app):
+        """Exception handler yapılandırması"""
+        warnings.filterwarnings("ignore", category=DeprecationWarning,
+                              message=".*HTTP_422_UNPROCESSABLE_ENTITY.*")
+
         from fastapi.exceptions import RequestValidationError
         from starlette.exceptions import HTTPException as StarletteHTTPException
+        from src.miniflow.core.exceptions import AppException
         from src.miniflow.server.middleware.exception_handler import (
             app_exception_handler,
             validation_exception_handler,
             http_exception_handler,
             generic_exception_handler,
         )
-        from src.miniflow.core.exceptions import AppException
-        
-        # 1. AppException (en spesifik)
+
         app.add_exception_handler(AppException, app_exception_handler)
-        
-        # 2. ValidationError (Pydantic)
         app.add_exception_handler(RequestValidationError, validation_exception_handler)
-        
-        # 3. HTTPException (Starlette)
         app.add_exception_handler(StarletteHTTPException, http_exception_handler)
-        
-        # 4. Generic Exception (en genel)
         app.add_exception_handler(Exception, generic_exception_handler)
 
-    def _add_routes(self, app):
-        """
-        Tüm route'ları ekle.
-        """
-        from src.miniflow.server.routes import auth_routes
-        from src.miniflow.server.routes import user_routes
-        from src.miniflow.server.routes import agreement_routes
-        from src.miniflow.server.routes import workspace_plans_routes
-        from src.miniflow.server.routes import workspace_routes
-        from src.miniflow.server.routes import workspace_member_routes
-        from src.miniflow.server.routes import workspace_invitation_routes
-        from src.miniflow.server.routes import api_key_routes
-        from src.miniflow.server.routes import variable_routes
-        from src.miniflow.server.routes import database_routes
-        from src.miniflow.server.routes import file_routes
-        from src.miniflow.server.routes import credential_routes
-        from src.miniflow.server.routes import global_script_routes
-        from src.miniflow.server.routes import custom_script_routes
-        from src.miniflow.server.routes import workflow_routes
-        from src.miniflow.server.routes import trigger_routes
-        from src.miniflow.server.routes import node_routes
-        from src.miniflow.server.routes import edge_routes
-        
-        # Health check routes
+    def _configure_routes(self, app):
+        """Route yapılandırması"""
+        # Health endpoints
         @app.get("/", tags=["General"])
         async def root():
-            """Ana sayfa"""
             return {
                 "app": "MiniFlow",
                 "status": "running",
                 "environment": self._app_env,
                 "docs": "/docs" if not self.is_production else None
             }
-        
+
         @app.get("/health", tags=["Health"])
-        async def health_check():
-            """Sağlık kontrolü"""
+        async def health():
             return {
                 "status": "healthy",
                 "environment": self._app_env,
                 "database_type": self._db_type
             }
-        
-        # API routes
-        app.include_router(auth_routes.router)
-        app.include_router(user_routes.router)
-        app.include_router(agreement_routes.router)
-        app.include_router(workspace_plans_routes.router)
-        app.include_router(workspace_routes.router)
-        app.include_router(workspace_member_routes.router)
-        app.include_router(workspace_invitation_routes.router)
-        app.include_router(api_key_routes.router)
-        app.include_router(variable_routes.router)
-        app.include_router(database_routes.router)
-        app.include_router(file_routes.router)
-        app.include_router(credential_routes.router)
-        app.include_router(global_script_routes.router)
-        app.include_router(custom_script_routes.router)
-        app.include_router(workflow_routes.router)
-        app.include_router(trigger_routes.router)
-        app.include_router(node_routes.router)
-        app.include_router(edge_routes.router)
 
-    def _worker_startup(self, worker_pid: int) -> DatabaseManager:
-        """Worker başlatma"""
-        manager = DatabaseManager()
-        if not manager.is_initialized:
-            db_config = self._get_db_config()
-            manager.initialize(db_config, auto_start=True, create_tables=False)
-            print(f"[WORKER-{worker_pid}] Database connection established")
-        
-        # Start scheduler service (only in main worker or all workers depending on configuration)
+        # API routers
+        from src.miniflow.server.routes import (
+            auth_routes, user_routes, agreement_routes, workspace_plans_routes,
+            workspace_routes, workspace_member_routes, workspace_invitation_routes,
+            api_key_routes, variable_routes, database_routes, file_routes,
+            credential_routes, global_script_routes, custom_script_routes,
+            workflow_routes, trigger_routes, node_routes, edge_routes,
+            execution_routes
+        )
+
+        for route in [
+            auth_routes, user_routes, agreement_routes, workspace_plans_routes,
+            workspace_routes, workspace_member_routes, workspace_invitation_routes,
+            api_key_routes, variable_routes, database_routes, file_routes,
+            credential_routes, global_script_routes, custom_script_routes,
+            workflow_routes, trigger_routes, node_routes, edge_routes,
+            execution_routes
+        ]:
+            app.include_router(route.router)
+
+    # ========================================================================
+    # HELPERS
+    # ========================================================================
+
+    def _get_db_config(self):
+        """Veritabanı konfigürasyonu"""
+        configs = {
+            "sqlite": lambda: get_sqlite_config(
+                self._config.get("Database", "db_path", "./miniflow.db")
+            ),
+            "postgresql": lambda: get_postgresql_config(
+                database_name=self._config.get("Database", "db_name", "miniflow"),
+                host=self._config.get("Database", "db_host", "localhost"),
+                port=self._config.get_int("Database", "db_port", 5432),
+                username=self._config.get("Database", "db_user", "postgres"),
+                password=self._config.get("Database", "db_password", ""),
+            ),
+            "mysql": lambda: get_mysql_config(
+                database_name=self._config.get("Database", "db_name", "miniflow"),
+                host=self._config.get("Database", "db_host", "localhost"),
+                port=self._config.get_int("Database", "db_port", 3306),
+                username=self._config.get("Database", "db_user", "root"),
+                password=self._config.get("Database", "db_password", ""),
+            ),
+        }
+
+        if self._db_type not in configs:
+            raise InvalidInputError(field_name="DB_TYPE")
+
+        return configs[self._db_type]()
+
+    def _test_db_connection(self) -> bool:
+        """Veritabanı bağlantı testi"""
+        if not self._db_manager or not self._db_manager.is_initialized:
+            return False
+
         try:
-            from src.miniflow.services.execution_services import SchedulerService
-            scheduler_service = SchedulerService()
-            if scheduler_service.start():
-                print(f"[WORKER-{worker_pid}] SchedulerService started")
-                # Store scheduler service in manager for shutdown
-                manager._scheduler_service = scheduler_service
-            else:
-                print(f"[WORKER-{worker_pid}] Warning: SchedulerService failed to start")
-        except Exception as e:
-            print(f"[WORKER-{worker_pid}] Warning: Failed to start SchedulerService: {str(e)}")
-            # Don't fail startup if scheduler fails - it's optional for API-only mode
-        
-        return manager
+            engine = self._db_manager.engine._engine
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                return len(inspect(engine).get_table_names()) > 0
+        except:
+            return False
 
-    def _worker_shutdown(self, worker_pid: int, manager: DatabaseManager):
-        """Worker kapatma"""
-        # Stop scheduler service if it exists
-        if hasattr(manager, '_scheduler_service') and manager._scheduler_service:
+    def _is_database_ready(self) -> bool:
+        """Veritabanı hazır mı kontrolü"""
+        try:
+            db_url = self._get_db_config().get_connection_string()
+            engine = create_engine(db_url, echo=False, poolclass=NullPool)
+
             try:
-                print(f"[WORKER-{worker_pid}] Stopping SchedulerService...")
-                manager._scheduler_service.stop()
-                print(f"[WORKER-{worker_pid}] SchedulerService stopped")
-            except Exception as e:
-                print(f"[WORKER-{worker_pid}] Error stopping SchedulerService: {str(e)}")
-        
-        if manager.is_started:
-            manager.engine.stop()
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                    return len(inspect(engine).get_table_names()) > 0
+            finally:
+                engine.dispose()
+        except:
+            return False
 
-    def start_server(self, app):
-        """
-        Uvicorn sunucusunu başlat.
-        """
-        import uvicorn
-        
-        host = self._config.get("Server", "host", "0.0.0.0")
-        port = self._config.get_int("Server", "port", 8000)
-        reload_config = self._config.get_bool("Server", "reload", False)
-        workers = self._config.get_int("Server", "workers", 1)
-        
-        # Uvicorn reload için app objesi yerine import string kullanılmalı
-        # Reload=True olduğunda import string kullan, reload=False olduğunda app objesi kullan
-        reload = reload_config and self.is_development
-        
-        print("\n" + "-" * 70)
+    def _initialize_seed_services(self):
+        """Seed service'leri başlat"""
+        self._user_role_service = self._user_role_service or UserRolesService()
+        self._workspace_plan_service = self._workspace_plan_service or WorkspacePlansService()
+        self._agreement_service = self._agreement_service or AgreementService()
+        self._global_script_service = self._global_script_service or GlobalScriptService()
+
+    def _cleanup_database(self):
+        """Veritabanı temizleme"""
+        if self._db_manager and self._db_manager.is_started:
+            self._db_manager.engine.stop()
+
+    # ========================================================================
+    # PROPERTIES
+    # ========================================================================
+
+    @property
+    def _config(self):
+        return ConfigurationHandler
+
+    @property
+    def is_development(self) -> bool:
+        return 'dev' in self._app_env
+
+    @property
+    def is_production(self) -> bool:
+        return 'prod' in self._app_env
+
+    # ========================================================================
+    # OUTPUT HELPERS
+    # ========================================================================
+
+    def _print_header(self, title: str):
+        """Başlık yazdır"""
+        print("\n" + "=" * 70)
+        print(title.center(70))
+        print("=" * 70 + "\n")
+
+    def _print_success(self, title: str):
+        """Başarı mesajı"""
+        print("\n" + "=" * 70)
+        print(f"[SUCCESS] {title}".center(70))
+        print("=" * 70 + "\n")
+
+    def _print_error(self, title: str, message: str):
+        """Hata mesajı"""
+        print("\n" + "=" * 70)
+        print(f"[ERROR] {title}".center(70))
+        print("=" * 70)
+        print(f"\n{message}\n")
+        print("-" * 70 + "\n")
+
+    def _print_server_info(self, host: str, port: int, reload: bool, workers: int):
+        """Sunucu bilgileri"""
+        print("-" * 70)
         print("WEB SERVER STARTING".center(70))
         print("-" * 70)
-        print(f"Environment      : {self._app_env.upper()}")
+        print(f"Environment       : {self._app_env.upper()}")
         print(f"Database Type     : {self._db_type.upper()}")
         print(f"Address           : http://{host}:{port}")
         if not self.is_production:
             print(f"Documentation     : http://{host}:{port}/docs")
-        print(f"Reload            : {'✅ Active' if reload else '❌ Disabled'}")
-        print(f"Workers           : {workers if not reload else 1}")
+        print(f"Reload            : {'[ACTIVE]' if reload else '[DISABLED]'}")
+        print(f"Workers           : {workers}")
         print("-" * 70 + "\n")
-        
-        self.is_running = True
-        
-        if reload:
-            # Reload için import string kullan
-            uvicorn.run(
-                "src.miniflow.app:app",
-                host=host,
-                port=port,
-                reload=True,
-                workers=1,  # Reload ile workers kullanılamaz
-                access_log=self.is_development,
-            )
-        else:
-            # Reload olmadan app objesi kullan
-            uvicorn.run(
-                app,
-                host=host,
-                port=port,
-                reload=False,
-                workers=workers,
-                access_log=self.is_development,
-            )
+
+    def _handle_initialization_error(self, e):
+        """Initialization hata yönetimi"""
+        self._print_error(
+            "INITIALIZATION ERROR" if isinstance(e, InternalError) else "RESOURCE NOT FOUND",
+            str(e.error_message if hasattr(e, 'error_message') else e)
+        )
+
+        troubleshooting = {
+            "environment_handler": [
+                "Verify .env file exists in project root",
+                "Check TEST_KEY='ThisKeyIsForConfigTest'",
+            ],
+            "configuration_handler": [
+                "Verify config files in 'configurations/' directory",
+                "Check INI format with [Test] section",
+            ],
+            "redis_client": [
+                "Verify Redis server is running",
+                "Test connection: redis-cli ping",
+            ],
+        }
+
+        component = getattr(e, 'component_name', None)
+        if component and component in troubleshooting:
+            print("Troubleshooting:")
+            for tip in troubleshooting[component]:
+                print(f"  • {tip}")
+            print("-" * 70 + "\n")
+
+        sys.exit(1)
+
+    def _handle_unexpected_error(self, e, context: str = ""):
+        """Beklenmeyen hata yönetimi"""
+        self._print_error(
+            "UNEXPECTED ERROR",
+            f"{type(e).__name__}: {str(e)}\n\nContext: {context}" if context else str(e)
+        )
+        sys.exit(1)
 
 
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
 
-def print_help():
-    """Yardım mesajını göster"""
-    print("\n" + "=" * 70)
-    print("MINIFLOW ENTERPRISE - Available Commands".center(70))
-    print("=" * 70)
-    print("\n  setup      Initial setup (create database, seed data, test handlers)")
-    print("  run        Start the application (default)")
-    print("  help       Show this help message")
-    print("\nExamples:")
-    print("  python -m src.miniflow setup")
-    print("  python -m src.miniflow run")
-    print("  python -m src.miniflow        # 'run' command (default)\n")
-
-
 if __name__ == "__main__":
     """Main entry point for MiniFlow application."""
     miniflow = None
+
     try:
-        # Komut satırı argümanı
         command = sys.argv[1].lower() if len(sys.argv) > 1 else "run"
-        
-        # Diğer komutlar için MiniFlow'u initialize et
         miniflow = MiniFlow()
-        
+
         if command == "setup":
             miniflow.setup()
         elif command == "run":
             miniflow.run()
-        elif command in ("help", "--help", "-h"):
-            print_help()
         else:
-            print(f"Unknown command: {command}")
-            print_help()
+            print(f"\nUnknown command: {command}")
+            print("Use 'python -m src.miniflow help' for available commands\n")
             sys.exit(1)
-        
+
     except KeyboardInterrupt:
-        print("\n\n[INFO] Application interrupted by user")
+        print("\n\n[INFO] Application interrupted by user\n")
         sys.exit(0)
     except Exception as e:
-        print(f"\n[FATAL] Application failed: {type(e).__name__}: {str(e)}")
-        import traceback
+        print(f"\n[FATAL] {type(e).__name__}: {str(e)}")
         if miniflow and miniflow.is_development:
             traceback.print_exc()
         sys.exit(1)

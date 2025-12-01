@@ -160,11 +160,11 @@ class WorkspaceService:
         session.add(user)
 
         return {
-            "workspace_id": workspace.id,
-            "workspace_name": workspace.name,
-            "workspace_slug": workspace.slug,
-            "workspace_description": workspace.description,
-            "workspace_owner_id": workspace.owner_id,
+            "id": workspace.id,
+            "name": workspace.name,
+            "slug": workspace.slug,
+            "description": workspace.description,
+            "owner_id": workspace.owner_id,
         }
 
     @with_readonly_session(manager=None)

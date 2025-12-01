@@ -213,7 +213,7 @@ class DatabaseService:
         
         return {
             "deleted": True,
-            "database_id": database_id
+            "id": database_id
         }
 
     @with_readonly_session(manager=None)

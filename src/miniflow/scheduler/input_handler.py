@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as
 from typing import Dict, Any, List, Optional
 
 from src.miniflow.utils.handlers.configuration_handler import ConfigurationHandler
-from src.miniflow.services.scheduler_service import SchedulerService
+from src.miniflow.services.internal_services.scheduler_service import SchedulerForInputHandler
 from src.miniflow.core.exceptions import (
     HandlerConfigurationError,
     ContextCreationError,
@@ -20,12 +20,12 @@ class InputHandler:
     InputHandler: Ready execution inputs'ları alır, context oluşturur ve engine'e gönderir.
     
     Sorumluluklar:
-    - SchedulerService.get_ready_execution_inputs() ile ready task'ları al
-    - Her task için SchedulerService.create_execution_context() ile context oluştur
+    - SchedulerForInputHandler.get_ready_execution_inputs() ile ready task'ları al
+    - Her task için SchedulerForInputHandler.create_execution_context() ile context oluştur
     - Payload'ları hazırla ve engine'e gönder
     """
     
-    def __init__(self, scheduler_service: SchedulerService, exec_engine):
+    def __init__(self, scheduler_service: SchedulerForInputHandler, exec_engine):
         self.scheduler_service = scheduler_service
         self.exec_engine = exec_engine
 
