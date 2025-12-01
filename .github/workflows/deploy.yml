@@ -61,6 +61,15 @@ jobs:
               # Son kodu çek
               echo "📥 Pulling latest code..."
               git pull origin main || { echo "❌ Git pull failed!"; exit 1; }
+
+              # Environment dosyası oluştur
+              echo "📝 Creating environment file..."
+              echo "TEST_KEY=ThisKeyIsForConfigTest" > .env
+              echo "APP_ENV=dev" >> .env
+              echo "DB_TYPE=sqlite" >> .env
+              echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env
+              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+              echo "MAILTRAP_API_KEY=${{ secrets.MAILTRAP_API_KEY }}" >> .env
               
               # Dependency güncelle
               echo "📦 Updating dependencies..."
