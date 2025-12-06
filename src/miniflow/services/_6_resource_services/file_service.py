@@ -345,7 +345,7 @@ class FileService:
         if update_data:
             cls._file_repo._update(session, record_id=file_id, **update_data)
         
-        return cls.get_file(session, file_id=file_id)
+        return cls.get_file(file_id=file_id)
 
     # ==================================================================================== DELETE ==
     @classmethod

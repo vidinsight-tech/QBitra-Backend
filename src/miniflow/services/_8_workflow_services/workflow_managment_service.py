@@ -302,7 +302,7 @@ class WorkflowManagementService:
         if update_data:
             cls._workflow_repo._update(session, record_id=workflow_id, **update_data)
         
-        return cls.get_workflow(session, workflow_id=workflow_id)
+        return cls.get_workflow(workflow_id=workflow_id)
 
     # ==================================================================================== STATUS MANAGEMENT ==
     @classmethod

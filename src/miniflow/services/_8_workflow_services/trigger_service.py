@@ -413,7 +413,7 @@ class TriggerService:
         if update_data:
             cls._trigger_repo._update(session, record_id=trigger_id, **update_data)
         
-        return cls.get_trigger(session, trigger_id=trigger_id)
+        return cls.get_trigger(trigger_id=trigger_id)
 
     # ==================================================================================== ENABLE/DISABLE ==
     @classmethod

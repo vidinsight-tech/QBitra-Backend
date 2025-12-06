@@ -6,7 +6,6 @@ from datetime import datetime
 
 from miniflow.server.dependencies import (
     get_agreement_service,
-    authenticate_user,
     authenticate_admin,
 )
 from miniflow.server.dependencies.auth import AuthenticatedUser
@@ -34,12 +33,11 @@ def _standardize_agreement_dict(data: dict) -> dict:
 async def get_all_agreements(
     request: Request,
     service = Depends(get_agreement_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get all agreement versions.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     agreements = service.get_all_agreements()
     standardized = [_standardize_agreement_dict(agr) for agr in agreements]
@@ -70,12 +68,11 @@ async def get_agreement_by_id(
     request: Request,
     agreement_id: str,
     service = Depends(get_agreement_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get agreement by ID.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     agreement = service.get_agreement_by_id(agreement_id=agreement_id)
     standardized = _standardize_agreement_dict(agreement)
@@ -109,12 +106,11 @@ async def get_agreement_by_type_and_version(
     version: str,
     locale: str = Query(default="tr-TR", description="Locale code"),
     service = Depends(get_agreement_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get agreement by type, version and locale.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     agreement = service.get_agreement_by_type_and_version(
         agreement_type=agreement_type,
@@ -132,12 +128,11 @@ async def get_all_versions_by_type(
     agreement_type: str,
     locale: str = Query(default=None, description="Locale code (optional)"),
     service = Depends(get_agreement_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get all versions for a specific agreement type.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     agreements = service.get_all_versions_by_type(agreement_type=agreement_type, locale=locale)
     standardized = [_standardize_agreement_dict(agr) for agr in agreements]

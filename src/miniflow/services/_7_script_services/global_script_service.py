@@ -350,7 +350,7 @@ class GlobalScriptService:
             update_data["updated_by"] = "system"
             cls._script_repo._update(session, record_id=script_id, **update_data)
         
-        return cls.get_script(session, script_id=script_id)
+        return cls.get_script(script_id=script_id)
 
     # ==================================================================================== DELETE ==
     @classmethod

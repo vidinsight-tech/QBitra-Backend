@@ -110,13 +110,7 @@ class VariableService:
         Returns:
             Variable detayları
         """
-        variable = cls._variable_repo._get_by_id(session, record_id=variable_id)
-        
-        if not variable:
-            raise ResourceNotFoundError(
-                resource_name="Variable",
-                resource_id=variable_id
-            )
+        variable = cls._variable_repo._get_by_id(session, record_id=variable_id, raise_not_found=True)
         
         # Değer
         if variable.is_secret:
@@ -253,13 +247,7 @@ class VariableService:
         Returns:
             Güncellenmiş variable bilgileri
         """
-        variable = cls._variable_repo._get_by_id(session, record_id=variable_id)
-        
-        if not variable:
-            raise ResourceNotFoundError(
-                resource_name="Variable",
-                resource_id=variable_id
-            )
+        variable = cls._variable_repo._get_by_id(session, record_id=variable_id, raise_not_found=True)
         
         update_data = {}
         
@@ -309,7 +297,7 @@ class VariableService:
         if update_data:
             cls._variable_repo._update(session, record_id=variable_id, **update_data)
         
-        return cls.get_variable(session, variable_id=variable_id)
+        return cls.get_variable(variable_id=variable_id)
 
     # ==================================================================================== DELETE ==
     @classmethod
@@ -329,13 +317,7 @@ class VariableService:
         Returns:
             {"success": True, "deleted_id": str}
         """
-        variable = cls._variable_repo._get_by_id(session, record_id=variable_id)
-        
-        if not variable:
-            raise ResourceNotFoundError(
-                resource_name="Variable",
-                resource_id=variable_id
-            )
+        variable = cls._variable_repo._get_by_id(session, record_id=variable_id, raise_not_found=True)
         
         cls._variable_repo._delete(session, record_id=variable_id)
         

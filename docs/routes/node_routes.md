@@ -264,9 +264,54 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "input_params": {} (required, JSON)
+  "input_params": {
+    "param_name": {
+      "value": "actual_value" (required, can be reference string like "${node:NOD-123.result}")
+    }
+  }
 }
 ```
+
+**Frontend Format (with `front` object):**
+```json
+{
+  "input_params": {
+    "param_name": {
+      "front": {
+        "order": 0,
+        "type": "text|number|checkbox|select|...",
+        "values": ["enum", "values"],
+        "placeholder": "Enter param_name...",
+        "supports_reference": true,
+        "reference_types": ["static", "trigger", "node", "value", "credential", "database", "file"]
+      },
+      "type": "string",
+      "value": "actual_value",
+      "default_value": "default",
+      "required": true,
+      "description": "Parameter description",
+      "is_reference": false
+    }
+  }
+}
+```
+
+**Backend Format (simplified, `front` object is ignored):**
+```json
+{
+  "input_params": {
+    "param_name": {
+      "type": "string",
+      "value": "actual_value",
+      "default_value": "default",
+      "required": true,
+      "description": "Parameter description"
+    }
+  }
+}
+```
+
+**Note:** Frontend can send either format. The `front` object is ignored during update - only the `value` field is used to update the parameter.
 
 **Expected Response (200 OK):**
 ```json

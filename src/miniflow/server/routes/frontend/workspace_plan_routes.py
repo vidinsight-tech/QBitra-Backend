@@ -4,9 +4,7 @@ from fastapi import APIRouter, Request, Depends
 
 from miniflow.server.dependencies import (
     get_workspace_plan_service,
-    authenticate_user,
 )
-from miniflow.server.dependencies.auth import AuthenticatedUser
 from miniflow.server.schemas.base_schemas import create_success_response
 from .schemas.workspace_plan_schemas import (
     WorkspacePlanResponse,
@@ -36,12 +34,11 @@ def _standardize_plan_dict(data: dict) -> dict:
 async def get_all_workspace_plans(
     request: Request,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get all workspace plans.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     plans = service.get_all_workspace_plans()
     standardized = [_standardize_plan_dict(plan) for plan in plans]
@@ -54,12 +51,11 @@ async def get_workspace_plan_by_id(
     request: Request,
     plan_id: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get workspace plan by ID.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     plan = service.get_workspace_plan_by_id(plan_id=plan_id)
     standardized = _standardize_plan_dict(plan)
@@ -72,12 +68,11 @@ async def get_workspace_plan_by_name(
     request: Request,
     plan_name: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get workspace plan by name.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     plan = service.get_workspace_plan_by_name(plan_name=plan_name)
     standardized = _standardize_plan_dict(plan)
@@ -90,12 +85,11 @@ async def get_workspace_limits(
     request: Request,
     plan_id: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get workspace limits for a plan.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     limits = service.get_workspace_limits(plan_id=plan_id)
     response_data = WorkspaceLimitsResponse(plan_id=plan_id, **limits)
@@ -107,12 +101,11 @@ async def get_monthly_limits(
     request: Request,
     plan_id: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get monthly execution limits for a plan.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     limits = service.get_monthly_limits(plan_id=plan_id)
     response_data = MonthlyLimitsResponse(plan_id=plan_id, **limits)
@@ -124,12 +117,11 @@ async def get_feature_flags(
     request: Request,
     plan_id: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get feature flags for a plan.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     features = service.get_feature_flags(plan_id=plan_id)
     response_data = FeatureFlagsResponse(plan_id=plan_id, **features)
@@ -141,12 +133,11 @@ async def get_api_limits(
     request: Request,
     plan_id: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get API rate limits for a plan.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     limits = service.get_api_limits(plan_id=plan_id)
     response_data = ApiLimitsResponse(plan_id=plan_id, **limits)
@@ -158,12 +149,11 @@ async def get_pricing(
     request: Request,
     plan_id: str,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get pricing information for a plan.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     pricing = service.get_pricing(plan_id=plan_id)
     response_data = PricingResponse(plan_id=plan_id, **pricing)
@@ -174,12 +164,11 @@ async def get_pricing(
 async def get_all_api_rate_limits(
     request: Request,
     service = Depends(get_workspace_plan_service),
-    current_user: AuthenticatedUser = Depends(authenticate_user),
 ) -> dict:
     """
     Get all API rate limits for all plans.
     
-    Requires: User authentication
+    Public endpoint - no authentication required.
     """
     limits = service.get_all_api_rate_limits()
     response_data = AllApiRateLimitsResponse(limits=limits)

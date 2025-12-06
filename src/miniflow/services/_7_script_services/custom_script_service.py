@@ -352,7 +352,7 @@ class CustomScriptService:
         if update_data:
             cls._custom_script_repo._update(session, record_id=script_id, **update_data)
         
-        return cls.get_custom_script(session, script_id=script_id)
+        return cls.get_custom_script(script_id=script_id)
 
     # ==================================================================================== APPROVAL WORKFLOW ==
     @classmethod

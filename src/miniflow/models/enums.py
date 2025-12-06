@@ -186,6 +186,7 @@ class DatabaseType(str, Enum):
 class CredentialType(str, Enum):
     """Credential types"""
     API_KEY = "API_KEY"                 # Simple API key
+    SLACK = "SLACK"                     # Slack credentials (bot_token, signing_secret, app_token)
     OAUTH2 = "OAUTH2"                   # OAuth 2.0 credentials
     BASIC_AUTH = "BASIC_AUTH"           # Username/password
     JWT = "JWT"                         # JSON Web Token

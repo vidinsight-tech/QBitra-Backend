@@ -217,7 +217,7 @@ class CredentialService:
             workspace_id=workspace_id,
             owner_id=owner_id,
             name=name,
-            credential_type=CredentialType.API_KEY,  # Slack da API_KEY tipi
+            credential_type=CredentialType.SLACK,
             credential_provider="SLACK",
             description=description,
             credential_data=encrypted_data,
@@ -393,7 +393,7 @@ class CredentialService:
         if update_data:
             cls._credential_repo._update(session, record_id=credential_id, **update_data)
         
-        return cls.get_credential(session, credential_id=credential_id)
+        return cls.get_credential(credential_id=credential_id)
 
     # ==================================================================================== ACTIVATE/DEACTIVATE ==
     @classmethod

@@ -138,13 +138,7 @@ class DatabaseService:
         Returns:
             Database detayları
         """
-        database = cls._database_repo._get_by_id(session, record_id=database_id)
-        
-        if not database:
-            raise ResourceNotFoundError(
-                resource_name="Database",
-                resource_id=database_id
-            )
+        database = cls._database_repo._get_by_id(session, record_id=database_id, raise_not_found=True)
         
         result = {
             "id": database.id,
@@ -286,7 +280,7 @@ class DatabaseService:
                 raise ResourceAlreadyExistsError(
                     resource_name="Database",
                     conflicting_field="name",
-                    message=f"Database with name '{name}' already exists in workspace {workspace_id}"
+                    message=f"Database with name '{name}' already exists in workspace {database.workspace_id}"
                 )
             update_data["name"] = name
         
@@ -314,7 +308,7 @@ class DatabaseService:
         if update_data:
             cls._database_repo._update(session, record_id=database_id, **update_data)
         
-        return cls.get_database(session, database_id=database_id)
+        return cls.get_database(database_id=database_id)
 
     # ==================================================================================== TEST CONNECTION ==
     @classmethod

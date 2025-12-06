@@ -118,6 +118,24 @@ class RegisterService:
                 message="Invalid privacy policy version"
             )
         
+        # Email kontrolü - zaten kullanılıyor mu?
+        existing_user_by_email = cls._user_repo._get_by_email(session, email=email, include_deleted=False)
+        if existing_user_by_email:
+            raise ResourceAlreadyExistsError(
+                resource_name="user",
+                conflicting_field="email",
+                message="Email address is already registered"
+            )
+        
+        # Username kontrolü - zaten kullanılıyor mu?
+        existing_user_by_username = cls._user_repo._get_by_username(session, username=username, include_deleted=False)
+        if existing_user_by_username:
+            raise ResourceAlreadyExistsError(
+                resource_name="user",
+                conflicting_field="username",
+                message="Username is already taken"
+            )
+        
         # Şifreyi hashle
         hashed_password = hash_password(password)
         

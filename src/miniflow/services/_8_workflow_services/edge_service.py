@@ -347,7 +347,7 @@ class EdgeService:
         if update_data:
             cls._edge_repo._update(session, record_id=edge_id, **update_data)
         
-        return cls.get_edge(session, edge_id=edge_id)
+        return cls.get_edge(edge_id=edge_id)
 
     # ==================================================================================== DELETE ==
     @classmethod

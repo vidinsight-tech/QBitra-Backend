@@ -64,6 +64,9 @@ class NodeService:
         if not isinstance(input_schema, dict):
             input_schema = {}
         
+        # Reference tipleri (tüm parametreler için aynı)
+        reference_types = ["static", "trigger", "node", "value", "credential", "database", "file"]
+        
         for param_name, param_schema in input_schema.items():
             if not isinstance(param_schema, dict):
                 if isinstance(param_schema, str):
@@ -72,12 +75,17 @@ class NodeService:
                     continue
             
             existing_value = None
+            is_reference_value = False
             if existing_input_params and param_name in existing_input_params:
                 existing_param = existing_input_params[param_name]
                 if isinstance(existing_param, dict):
                     existing_value = existing_param.get('value')
                 else:
                     existing_value = existing_param
+                
+                # Mevcut değerin reference olup olmadığını kontrol et
+                if existing_value is not None:
+                    is_reference_value = cls._is_reference(existing_value)
             
             schema_type = param_schema.get('type', 'string')
             front_type = cls._map_schema_type_to_frontend_type(schema_type)
@@ -91,13 +99,16 @@ class NodeService:
                     "order": order,
                     "type": front_type,
                     "values": param_schema.get('enum'),
-                    "placeholder": param_schema.get('placeholder') or param_schema.get('description') or f"Enter {param_name}..."
+                    "placeholder": param_schema.get('placeholder') or param_schema.get('description') or f"Enter {param_name}...",
+                    "supports_reference": True,  # Frontend'e reference desteği olduğunu bildir
+                    "reference_types": reference_types  # Desteklenen reference tipleri
                 },
                 "type": schema_type,
                 "default_value": existing_value if existing_value is not None else param_schema.get('default'),
                 "value": existing_value,
                 "required": param_schema.get('required', False),
-                "description": param_schema.get('description')
+                "description": param_schema.get('description'),
+                "is_reference": is_reference_value  # Mevcut değer reference mı?
             }
             order += 1
         
@@ -220,19 +231,19 @@ class NodeService:
             if not isinstance(value, str):
                 raise InvalidInputError(
                     field_name=param_name,
-                    message=f"Parameter '{param_name}' must be a string"
+                    message=f"Parameter '{param_name}' must be a string, got {type(value).__name__}"
                 )
         elif type_lower in ('number', 'integer', 'float'):
             if not isinstance(value, (int, float)):
                 raise InvalidInputError(
                     field_name=param_name,
-                    message=f"Parameter '{param_name}' must be a number"
+                    message=f"Parameter '{param_name}' must be a number, got {type(value).__name__}"
                 )
         elif type_lower == 'boolean':
             if not isinstance(value, bool):
                 raise InvalidInputError(
                     field_name=param_name,
-                    message=f"Parameter '{param_name}' must be a boolean"
+                    message=f"Parameter '{param_name}' must be a boolean, got {type(value).__name__}"
                 )
 
     # ==================================================================================== CREATE ==
@@ -650,7 +661,7 @@ class NodeService:
         if update_data:
             cls._node_repo._update(session, record_id=node_id, **update_data)
         
-        return cls.get_node(session, node_id=node_id)
+        return cls.get_node(node_id=node_id)
 
     @classmethod
     @with_transaction(manager=None)
@@ -664,9 +675,12 @@ class NodeService:
         """
         Node'un input parametrelerini günceller.
         
+        Mevcut input_params yapısını korur ve sadece gönderilen parametrelerin value değerlerini günceller.
+        Diğer parametrelerin (type, default_value, required, description) bilgileri korunur.
+        
         Args:
             node_id: Node ID'si
-            input_params: Yeni input parametreleri
+            input_params: Frontend'den gelen input parametreleri (sadece güncellenecek parametreler)
             
         Returns:
             Güncellenmiş node bilgileri
@@ -698,19 +712,93 @@ class NodeService:
                 message="Node has no associated script"
             )
         
-        # Validate ve dönüştür
-        validated_params = cls._validate_and_convert_frontend_params(
-            frontend_params=input_params,
-            script_input_schema=script.input_schema or {}
-        )
+        # Mevcut input_params'i al (yapıyı korumak için)
+        current_input_params = node.input_params or {}
         
+        # Script'in input_schema'sını al
+        script_input_schema = script.input_schema or {}
+        
+        # JSON Schema formatı kontrolü
+        if isinstance(script_input_schema, dict) and "properties" in script_input_schema:
+            required_fields = script_input_schema.get("required", [])
+            script_input_schema = script_input_schema["properties"]
+            # Her property'ye required bilgisini ekle
+            for prop_name in required_fields:
+                if prop_name in script_input_schema and isinstance(script_input_schema[prop_name], dict):
+                    script_input_schema[prop_name]["required"] = True
+        
+        # Eğer hala dict değilse, boş dict kullan
+        if not isinstance(script_input_schema, dict):
+            script_input_schema = {}
+        
+        # Güncellenmiş parametreleri oluştur (mevcut yapıyı koruyarak)
+        updated_params = current_input_params.copy()
+        
+        # Frontend'den gelen parametreleri işle
+        for param_name, param_data in input_params.items():
+            # Script schema'da bu parametre var mı kontrol et
+            if param_name not in script_input_schema:
+                raise InvalidInputError(
+                    field_name="input_params",
+                    message=f"Parameter '{param_name}' is not defined in script's input_schema"
+                )
+            
+            schema_def = script_input_schema[param_name]
+            if isinstance(schema_def, str):
+                schema_def = {"type": schema_def}
+            
+            # Value'yu al
+            value = None
+            if isinstance(param_data, dict):
+                value = param_data.get('value')
+            else:
+                value = param_data
+            
+            # Required kontrolü
+            if schema_def.get('required', False) and (value is None or value == ''):
+                raise InvalidInputError(
+                    field_name=param_name,
+                    message=f"Parameter '{param_name}' is required"
+                )
+            
+            # Type validation
+            param_type = schema_def.get('type', 'string')
+            if value is not None:
+                cls._validate_param_type(param_name, value, param_type, schema_def)
+            
+            # Mevcut parametreyi al veya yeni oluştur
+            if param_name in updated_params:
+                # Mevcut parametreyi güncelle - sadece value'yu değiştir, diğer bilgileri koru
+                if isinstance(updated_params[param_name], dict):
+                    updated_params[param_name] = updated_params[param_name].copy()
+                    updated_params[param_name]["value"] = value
+                else:
+                    # Eğer mevcut değer dict değilse, yeni yapı oluştur
+                    updated_params[param_name] = {
+                        "type": param_type,
+                        "value": value,
+                        "default_value": schema_def.get('default'),
+                        "required": schema_def.get('required', False),
+                        "description": schema_def.get('description')
+                    }
+            else:
+                # Yeni parametre - script schema'dan bilgileri al
+                updated_params[param_name] = {
+                    "type": param_type,
+                    "value": value,
+                    "default_value": schema_def.get('default'),
+                    "required": schema_def.get('required', False),
+                    "description": schema_def.get('description')
+                }
+        
+        # Node'u güncelle
         cls._node_repo._update(
             session,
             record_id=node_id,
-            input_params=validated_params
+            input_params=updated_params
         )
         
-        return cls.get_node(session, node_id=node_id)
+        return cls.get_node(node_id=node_id)
 
     @classmethod
     @with_transaction(manager=None)
@@ -827,7 +915,7 @@ class NodeService:
             input_params=synced_params
         )
         
-        return cls.get_node(session, node_id=node_id)
+        return cls.get_node(node_id=node_id)
 
     @classmethod
     @with_transaction(manager=None)
@@ -895,7 +983,7 @@ class NodeService:
             input_params=reset_params
         )
         
-        return cls.get_node(session, node_id=node_id)
+        return cls.get_node(node_id=node_id)
 
     # ==================================================================================== DELETE ==
     @classmethod

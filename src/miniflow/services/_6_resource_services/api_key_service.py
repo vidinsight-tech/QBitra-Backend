@@ -211,13 +211,15 @@ class ApiKeyService:
                 resource_id=workspace_id
             )
         
-        # Limit kontrolü
-        if workspace.current_api_key_count >= workspace.api_key_limit:
-            raise BusinessRuleViolationError(
-                rule_name="api_key_limit_reached",
-                rule_detail=f"Workspace {workspace_id} has {workspace.current_api_key_count} API keys, limit is {workspace.api_key_limit}",
-                message=f"API key limit reached. Maximum: {workspace.api_key_limit}"
-            )
+        # Limit kontrolü (0, -1 veya None = unlimited)
+        api_key_limit = workspace.api_key_limit
+        if api_key_limit is not None and api_key_limit > 0:
+            if workspace.current_api_key_count >= api_key_limit:
+                raise BusinessRuleViolationError(
+                    rule_name="api_key_limit_reached",
+                    rule_detail=f"Workspace {workspace_id} has {workspace.current_api_key_count} API keys, limit is {api_key_limit}",
+                    message=f"API key limit reached. Maximum: {api_key_limit}"
+                )
         
         # Benzersizlik kontrolü
         existing = cls._api_key_repo._get_by_name(session, workspace_id=workspace_id, name=name)
@@ -435,7 +437,7 @@ class ApiKeyService:
         if update_data:
             cls._api_key_repo._update(session, record_id=api_key_id, **update_data)
         
-        return cls.get_api_key(session, api_key_id=api_key_id)
+        return cls.get_api_key(api_key_id=api_key_id)
 
     # ==================================================================================== ACTIVATE/DEACTIVATE ==
     @classmethod

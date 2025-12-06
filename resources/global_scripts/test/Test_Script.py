@@ -1,0 +1,1 @@
+def main(params): return params
