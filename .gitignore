@@ -214,3 +214,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Alembic migrations cache
+alembic_migrations/__pycache__/
+alembic_migrations/versions/__pycache__/
+alembic_temp.ini
