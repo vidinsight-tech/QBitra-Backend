@@ -249,8 +249,15 @@ Otomatik oluşturulmuş Alembic ortam konfigürasyonu.
 Bu dosya miniflow.database.migrations.init_alembic_auto() tarafından otomatik oluşturuldu.
 Connection string ve metadata otomatik olarak yapılandırıldı.
 
-GÜVENLİK NOTU: Kimlik bilgilerini açığa çıkarmamak için connection string'i
-hardcode etmek yerine DATABASE_URL environment variable'ını kullanın.
+Connection String Yönetimi:
+    1. Önce DatabaseManager'dan connection string alınır (önerilen)
+    2. Eğer DatabaseManager initialize edilmemişse, DATABASE_URL environment variable kullanılır
+    3. Her ikisi de yoksa ValueError hatası verilir (güvenlik için hardcode fallback yok)
+
+GÜVENLİK NOTU: 
+    - Kimlik bilgilerini açığa çıkarmamak için connection string'i hardcode etmeyin
+    - DatabaseManager veya DATABASE_URL environment variable'ını kullanın
+    - Production'da yanlış veritabanına bağlanma riskini önlemek için hardcode fallback kaldırılmıştır
 """
 
 import os
@@ -285,12 +292,34 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Connection string'i environment variable'dan al (güvenlik için önerilir)
-# Ayarlanmamışsa placeholder'a düşer
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "{masked_connection_string}"  # Bunu güncelleyin veya DATABASE_URL env var'ını ayarlayın
-)
+# Connection string yönetimi: DatabaseManager'dan al (MigrationManager ile uyumlu)
+# Eğer DatabaseManager initialize edilmemişse, environment variable kullan
+DATABASE_URL = None
+
+try:
+    # Önce DatabaseManager'dan connection string almayı dene
+    from miniflow.database.engine.manager import DatabaseManager
+    manager = DatabaseManager()
+    if manager.is_initialized and manager.engine is not None:
+        DATABASE_URL = manager.engine._connection_string
+except (ImportError, AttributeError, Exception):
+    # DatabaseManager mevcut değilse veya initialize edilmemişse
+    # environment variable'dan al
+    pass
+
+# Eğer DatabaseManager'dan alınamadıysa, environment variable'dan al
+if DATABASE_URL is None:
+    DATABASE_URL = os.environ.get("DATABASE_URL", None)
+
+# Güvenlik: Hardcode fallback yok - hata ver
+# Production'da yanlış veritabanına bağlanma riskini önlemek için
+if DATABASE_URL is None:
+    raise ValueError(
+        "DATABASE_URL environment variable ayarlanmali "
+        "veya DatabaseManager initialize edilmeli. "
+        "Güvenlik nedeniyle hardcode fallback kullanılmıyor."
+    )
+
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # 'autogenerate' desteği için model'inizin MetaData nesnesini buraya ekleyin

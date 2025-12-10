@@ -209,7 +209,8 @@ def model_to_dict(
 def models_to_list(
     instances: Optional[List[Any]],
     exclude: Optional[List[str]] = None,
-    include_relationships: bool = False
+    include_relationships: bool = False,
+    max_depth: int = 1
 ) -> List[Dict[str, Any]]:
     """SQLAlchemy model instance'ları listesini dictionary listesine dönüştürür.
     
@@ -219,6 +220,7 @@ def models_to_list(
         instances: SQLAlchemy model instance'ları listesi
         exclude: Çıktıdan hariç tutulacak alan adları listesi
         include_relationships: True ise, relationship verilerini dahil et (varsayılan: False)
+        max_depth: Relationship serializasyonu için maksimum derinlik (varsayılan: 1)
     
     Returns:
         List[Dict[str, Any]]: Dictionary temsilleri listesi
@@ -241,24 +243,29 @@ def models_to_list(
         - Time Complexity: O(N*(C + R*L*D)) - N=instance sayısı, C=kolon sayısı, R=relationship sayısı, L=relationship item sayısı (ortalama), D=max_depth
         - Relationship'ler dahil değilse: O(N*C)
         - exclude_set bir kez oluşturulur ve tüm instance'lar için paylaşılır (optimizasyon)
-        - Space Complexity: O(N*(C + R*L*D)) - result listesi
+        - Her instance için ayrı visited set kullanılır (circular reference koruması için)
+        - Space Complexity: O(N*(C + R*L*D)) - result listesi ve her instance için visited set
     """
     if not instances:
         return []
     
     # exclude_set'i bir kez oluştur ve tüm instance'lar için paylaş (O(E) - E=exclude uzunluğu)
+    # Bu optimizasyon: exclude list'i set'e çevirme işlemi sadece bir kez yapılır
     exclude_set = set(exclude or [])
     exclude_set.add('_sa_instance_state')
     
-    # Circular reference koruması için shared visited set
-    visited = set()
-    
+    # Her instance için ayrı visited set kullanılmalı
+    # Çünkü farklı instance'lar arasında circular reference tespiti yanlış sonuç verebilir
+    # Örnek: User1 ve User2 aynı Post'a referans veriyorsa, User2 serialize edilirken
+    # Post zaten visited'de olduğu için None dönebilir (yanlış!)
     return [
         model_to_dict(
             instance,
+            exclude=exclude,  # exclude parametresi geçirilir, _exclude_set None olacak ve exclude_set oluşturulacak
             include_relationships=include_relationships,
-            _exclude_set=exclude_set,
-            _visited=visited
+            max_depth=max_depth,
+            _exclude_set=exclude_set,  # Optimizasyon: aynı exclude_set paylaşılır
+            _visited=None  # Her instance için yeni visited set oluşturulur (circular reference koruması)
         )
         for instance in instances
     ]
