@@ -6,10 +6,8 @@ ortak model özellikleri için yeniden kullanılabilir mixin'ler sağlar.
 """
 
 from datetime import datetime, timezone
-from typing import Any
 from sqlalchemy import Column, DateTime, Boolean, String
 from sqlalchemy.orm import declared_attr
-
 
 def _utc_now() -> datetime:
     """Mevcut UTC zamanını timezone-aware datetime olarak döndürür.
@@ -18,7 +16,6 @@ def _utc_now() -> datetime:
         timezone-aware datetime: UTC zamanı
     """
     return datetime.now(timezone.utc)
-
 
 class TimestampMixin:
     """Otomatik timestamp yönetimi için mixin.
