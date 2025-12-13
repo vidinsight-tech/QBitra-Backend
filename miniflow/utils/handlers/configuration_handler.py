@@ -1,7 +1,10 @@
 from pathlib import Path
 from configparser import ConfigParser
 
-from miniflow.core.exceptions import ResourceNotFoundError, InternalError
+from miniflow.core.exceptions import (
+    ResourceNotFoundError,
+    InternalServiceValidationError
+)
 
 
 class ConfigurationHandler:
@@ -25,7 +28,11 @@ class ConfigurationHandler:
         cls._config_path = project_root / config_file_name
         
         if not cls._config_path.exists():
-            raise ResourceNotFoundError(f".ini dosyası bulunamadı: {cls._config_path}")
+            raise ResourceNotFoundError(
+                resource_type="configuration_file",
+                resource_path=str(cls._config_path),
+                service_name="configuration_handler"
+            )
         
         cls._config_parser.read(cls._config_path)
         cls._initialized = True
@@ -48,15 +55,13 @@ class ConfigurationHandler:
         cls.load_config(environment_name)
         test_result = cls.test_config(section, test_key, test_value)
         if not test_result:
-            raise InternalError(
-                component_name="configuration_handler",
-                message="Configuration validation test failed. Configuration file may be corrupted or missing required variables.",
-                error_details={
-                    "test_key": test_key,
-                    "expected_value": test_value,
-                    "actual_value": cls._config_parser.get(section, test_key, fallback=None) if cls._config_parser.has_section(section) else None,
-                    "config_file_path": str(cls._config_path)
-                }
+            actual_value = cls._config_parser.get(section, test_key, fallback=None) if cls._config_parser.has_section(section) else None
+            raise InternalServiceValidationError(
+                service_name="configuration_handler",
+                validation_field=test_key,
+                expected_value=test_value,
+                actual_value=actual_value,
+                message=f"Configuration validation test failed for '{test_key}' in section '{section}'. Configuration file may be corrupted or missing required variables."
             )
         return test_result
         
