@@ -67,22 +67,15 @@ class MailtrapHandler:
             cls._use_sandbox = sandbox_mode
         
         # API Key (EnvironmentHandler'dan)
-        # Önce MAILTRAP_API_KEY'i kontrol et, yoksa sandbox/transactional key'leri kullan
+        # Tek bir API key hem sandbox hem transactional için çalışır
         cls._api_key = EnvironmentHandler.get_env("MAILTRAP_API_KEY")
-        if not cls._api_key:
-            # Sandbox mode için sandbox key, değilse transactional key kullan
-            if cls._use_sandbox:
-                cls._api_key = EnvironmentHandler.get_env("MAILTRAP_SANDBOX_API_KEY")
-            else:
-                cls._api_key = EnvironmentHandler.get_env("MAILTRAP_TRANSACTIONAL_TRANS_API_KEY")
-        
         if not cls._api_key:
             raise InternalServiceValidationError(
                 service_name="mailtrap_handler",
                 validation_field="MAILTRAP_API_KEY",
                 expected_value="non-empty string",
                 actual_value=None,
-                message="MAILTRAP_API_KEY, MAILTRAP_SANDBOX_API_KEY, or MAILTRAP_TRANSACTIONAL_TRANS_API_KEY environment variable is required"
+                message="MAILTRAP_API_KEY environment variable is required. Get your API token from https://mailtrap.io/api-tokens"
             )
         
         # Sandbox ID (ConfigurationHandler'dan, fallback EnvironmentHandler)
