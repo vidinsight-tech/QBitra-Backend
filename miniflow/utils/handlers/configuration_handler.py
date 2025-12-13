@@ -25,7 +25,7 @@ class ConfigurationHandler:
         config_file_name = f"{environment_name.lower()}.ini"
 
         project_root = Path(__file__).resolve().parents[3]
-        cls._config_path = project_root / config_file_name
+        cls._config_path = project_root / "configuration" / config_file_name
         
         if not cls._config_path.exists():
             raise ResourceNotFoundError(
