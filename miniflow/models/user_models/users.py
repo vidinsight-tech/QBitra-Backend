@@ -97,7 +97,11 @@ class User(Base, SoftDeleteMixin):
     login_history = relationship("LoginHistory", back_populates="user")
     uploaded_scripts = relationship("CustomScript", foreign_keys="CustomScript.uploaded_by", back_populates="uploader")
     script_reviews = relationship("ScriptReviewHistory", foreign_keys="ScriptReviewHistory.reviewed_by", back_populates="reviewer")
-    created_variables = relationship("Variable", foreign_keys="Variable.created_by_user_id", back_populates="created_by_user")
+    api_keys = relationship("ApiKey", foreign_keys="ApiKey.owner_id", back_populates="owner")
+    credentials = relationship("Credential", foreign_keys="Credential.owner_id", back_populates="owner")
+    databases = relationship("Database", foreign_keys="Database.owner_id", back_populates="owner")
+    uploaded_files = relationship("File", foreign_keys="File.owner_id", back_populates="owner")
+    created_variables = relationship("Variable", foreign_keys="Variable.owner_id", back_populates="owner")
 
     # ---- Helper Methods ---- #
     @property
