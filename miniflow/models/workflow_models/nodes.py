@@ -16,7 +16,7 @@ class Node(Base, SoftDeleteMixin):
     comment="Node'in ait olduğu workflow id'si")
     global_script_id = Column(String(20), ForeignKey("scripts.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="Node'in ait olduğu global script id'si (global script'in workflow'a bağlı olmadan çalıştırılması için)")
-    custom_script_id = Column(String(20), ForeignKey("scripts.id", ondelete="CASCADE"), nullable=True, index=True,
+    custom_script_id = Column(String(20), ForeignKey("custom_scripts.id", ondelete="CASCADE"), nullable=True, index=True,
     comment="Node'in ait olduğu custom script id'si (custom script'in workflow'a bağlı olarak çalıştırılması için)")
 
     # ---- Node Content ---- #
@@ -39,7 +39,7 @@ class Node(Base, SoftDeleteMixin):
     # ---- Relations ---- # 
     workflow = relationship("Workflow", back_populates="nodes")
     global_script = relationship("Script", foreign_keys=[global_script_id], back_populates="nodes_as_global")
-    custom_script = relationship("Script", foreign_keys=[custom_script_id], back_populates="nodes_as_custom")
+    custom_script = relationship("CustomScript", foreign_keys=[custom_script_id], back_populates="nodes")
     edges_as_source = relationship("Edge", foreign_keys="Edge.source_node_id", back_populates="source_node")
     edges_as_target = relationship("Edge", foreign_keys="Edge.target_node_id", back_populates="target_node")
     execution_inputs = relationship("ExecutionInput", back_populates="node")

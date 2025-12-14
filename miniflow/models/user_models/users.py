@@ -95,6 +95,9 @@ class User(Base, SoftDeleteMixin):
     agreement_acceptances = relationship("UserAgreementAcceptance", back_populates="user")
     auth_sessions = relationship("AuthSession", back_populates="user")
     login_history = relationship("LoginHistory", back_populates="user")
+    uploaded_scripts = relationship("CustomScript", foreign_keys="CustomScript.uploaded_by", back_populates="uploader")
+    script_reviews = relationship("ScriptReviewHistory", foreign_keys="ScriptReviewHistory.reviewed_by", back_populates="reviewer")
+    created_variables = relationship("Variable", foreign_keys="Variable.created_by_user_id", back_populates="created_by_user")
 
     # ---- Helper Methods ---- #
     @property
