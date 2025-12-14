@@ -13,7 +13,7 @@ class ExecutionOutput(Base):
     comment="ExecutionOutput'in ait olduğu execution id'si")
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="ExecutionOutput'in ait olduğu workspace id'si")
-    wokflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
+    workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="ExecutionOutput'in ait olduğu workflow id'si")
     node_id = Column(String(20), ForeignKey("nodes.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="ExecutionOutput'in ait olduğu node id'si")

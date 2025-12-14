@@ -12,7 +12,7 @@ class ExecutionInput(Base):
     comment="ExecutionInput'in ait olduğu execution id'si")
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="ExecutionInput'in ait olduğu workspace id'si")
-    wokflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
+    workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="ExecutionInput'in ait olduğu workflow id'si")
     node_id = Column(String(20), ForeignKey("nodes.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="ExecutionInput'in ait olduğu node id'si")
@@ -20,7 +20,7 @@ class ExecutionInput(Base):
     comment="ExecutionInput'in ait olduğu script id'si")
 
     # ---- Execution Input Content ---- #
-    dependecy_count = Column(Integer, nullable=False, default=0,
+    dependency_count = Column(Integer, nullable=False, default=0,
     comment="ExecutionInput'in bağımlılık sayısı")
     priority = Column(Integer, nullable=False, default=0,
     comment="ExecutionInput'in önceliği")

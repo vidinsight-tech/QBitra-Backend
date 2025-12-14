@@ -12,7 +12,7 @@ class Execution(Base):
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="Execution'in ait olduğu workspace id'si")
-    wokflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
+    workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="Execution'in ait olduğu workflow id'si")
     trigger_id = Column(String(20), ForeignKey("triggers.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="Execution'in ait olduğu trigger id'si")
@@ -35,10 +35,10 @@ class Execution(Base):
     workspace = relationship("Workspace", back_populates="executions")
     workflow = relationship("Workflow", back_populates="executions")
     trigger = relationship("Trigger", back_populates="executions")
-    parent_execution = relationship("Execution", back_populates="executions")
+    parent_execution = relationship("Execution", remote_side="Execution.id", back_populates="child_executions", foreign_keys=[parent_execution_id])
     child_executions = relationship("Execution", back_populates="parent_execution")
-    execution_inputs = relationship("ExecutionInput", back_populates="executions", cascade="all, delete-orphan")
-    execution_outputs = relationship("ExecutionOutput", back_populates="executions", cascade="all, delete-orphan")
+    execution_inputs = relationship("ExecutionInput", back_populates="execution", cascade="all, delete-orphan")
+    execution_outputs = relationship("ExecutionOutput", back_populates="execution", cascade="all, delete-orphan")
 
     # Helper Methods ---- #
     @property
