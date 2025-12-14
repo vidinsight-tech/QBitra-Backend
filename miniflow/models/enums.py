@@ -23,14 +23,22 @@ class ExecutionStatuses(str, Enum):
 
 class AuditActionTypes(str, Enum):
     CREATE = "create"
+    READ = "read"
     UPDATE = "update"
     DELETE = "delete"
-    EXPORT = "export"
-    IMPORT = "import"
-    APPROVE = "approve"
-    REJECT = "reject"
     EXECUTE = "execute"
     CANCEL = "cancel"
+    RETRY = "retry"
+    UPLOAD = "upload"
+    DOWNLOAD = "download"
+    EXPORT = "export"
+    IMPORT = "import"
+    INVITE = "invite"
+    JOIN = "join"
+    LEAVE = "leave"
+    REMOVE = "remove"
+    CHANGE_ROLE = "change_role"
+    TEST_CONNECTION = "test_connection"
 
 class CrashSeverity(str, Enum):
     LOW = "low"

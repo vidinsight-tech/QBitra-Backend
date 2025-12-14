@@ -88,3 +88,6 @@ class Workspace(Base, SoftDeleteMixin, TimestampMixin):
     executions = relationship("Execution", back_populates="workspace", cascade="all, delete-orphan")
     execution_inputs = relationship("ExecutionInput", back_populates="workspace", cascade="all, delete-orphan")
     execution_outputs = relationship("ExecutionOutput", back_populates="workspace", cascade="all, delete-orphan")
+    
+    # Audit relationships
+    audit_logs = relationship("AuditLog", back_populates="workspace", cascade="all, delete-orphan")

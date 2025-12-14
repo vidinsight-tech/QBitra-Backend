@@ -30,7 +30,7 @@ class ExecutionInput(Base):
     priority = Column(Integer, nullable=False, default=0,
     comment="Öncelik")
     waiting_for = Column(Integer, nullable=True, default=0,
-    comment="Beklenen tur sayısı")
+    comment="Beklenen döngü sayısı")
 
     # ---- Node Configuration ---- #
     node_name = Column(String(255), nullable=False,

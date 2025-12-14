@@ -39,8 +39,8 @@ class WorkspaceInvitation(Base, SoftDeleteMixin, TimestampMixin):
 
     # ---- Relationships ---- #
     workspace = relationship("Workspace", back_populates="invitations")
-    inviter = relationship("User", foreign_keys=[invited_by])
-    invitee = relationship("User", foreign_keys=[invitee_id])
+    inviter = relationship("User", foreign_keys=[invited_by], back_populates="sent_invitations")
+    invitee = relationship("User", foreign_keys=[invitee_id], back_populates="received_invitations")
     role = relationship("WorkspaceRole")
 
     # ---- Helper Methods ---- #

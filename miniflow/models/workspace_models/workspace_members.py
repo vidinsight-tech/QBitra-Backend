@@ -35,9 +35,6 @@ class WorkspaceMember(Base, SoftDeleteMixin, TimestampMixin):
     inviter = relationship("User", foreign_keys=[invited_by])
 
     # ---- Helper Methods ---- #
-    def update_last_accessed(self):
-        self.last_accessed_at = datetime.now(timezone.utc)
-    
     def has_permission(self, permission: str) -> bool:
         """Belirtilen izni kontrol et (custom_permissions > role permissions)"""
         # Önce custom_permissions kontrol et

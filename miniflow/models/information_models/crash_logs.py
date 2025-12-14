@@ -38,7 +38,7 @@ class CrashLog(Base, TimestampMixin):
     execution_id = Column(String(20), nullable=True, index=True,
     comment="İlgili execution id'si (varsa)")
     node_id = Column(String(20), nullable=True, index=True,
-    omment="İlgili node id'si (varsa)")
+    comment="İlgili node id'si (varsa)")
     trace_id = Column(String(255), nullable=True, index=True,
     comment="Trace id (distributed tracing için)")
     
@@ -48,7 +48,7 @@ class CrashLog(Base, TimestampMixin):
     route_path = Column(String(255), nullable=True,
     comment="Hata yaşanan route path'i")
     http_method = Column(String(10), nullable=True,
-    omment="HTTP method (GET, POST, PUT, DELETE vb.)")
+    comment="HTTP method (GET, POST, PUT, DELETE vb.)")
     
     # ---- Environment Info ---- #
     app_version = Column(String(50), nullable=True, index=True,
@@ -78,7 +78,7 @@ class CrashLog(Base, TimestampMixin):
     resolved_at = Column(DateTime(timezone=True), nullable=True,
     comment="Hatanın çözüldüğü zaman")
     resolved_by = Column(String(20), ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
-    omment="Çözmeyi yapan kullanıcının id'si")
+    comment="Çözmeyi yapan kullanıcının id'si")
     resolution_notes = Column(Text, nullable=True,
     comment="Çözüm notları")
     fix_version = Column(String(50), nullable=True,

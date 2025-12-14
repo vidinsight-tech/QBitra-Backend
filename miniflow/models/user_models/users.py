@@ -102,6 +102,19 @@ class User(Base, SoftDeleteMixin):
     databases = relationship("Database", foreign_keys="Database.owner_id", back_populates="owner")
     uploaded_files = relationship("File", foreign_keys="File.owner_id", back_populates="owner")
     created_variables = relationship("Variable", foreign_keys="Variable.owner_id", back_populates="owner")
+    
+    # Workspace relationships
+    owned_workspaces = relationship("Workspace", foreign_keys="Workspace.owner_id", back_populates="owner")
+    workspace_memberships = relationship("WorkspaceMember", foreign_keys="WorkspaceMember.user_id", back_populates="user")
+    sent_invitations = relationship("WorkspaceInvitation", foreign_keys="WorkspaceInvitation.invited_by", back_populates="inviter")
+    received_invitations = relationship("WorkspaceInvitation", foreign_keys="WorkspaceInvitation.invitee_id", back_populates="invitee")
+    
+    # Communication relationships
+    tickets = relationship("Ticket", back_populates="user")
+    
+    # Information relationships
+    audit_logs = relationship("AuditLog", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")
 
     # ---- Helper Methods ---- #
     @property
