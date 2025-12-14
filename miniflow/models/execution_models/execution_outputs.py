@@ -1,46 +1,77 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, Enum, DateTime, JSON
+from sqlalchemy import Column, String, ForeignKey, Integer, Text, Float, Enum, DateTime, JSON
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
 from miniflow.models.enums import ExecutionStatuses
 
+
 class ExecutionOutput(Base):
+    """Execution output - Node çalıştırma sonuçları"""
     __prefix__ = "EXO"
     __tablename__ = "execution_outputs"
+    __allow_unmapped__ = True
 
     # ---- Relationships ---- #
     execution_id = Column(String(20), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, index=True,
-    comment="ExecutionOutput'in ait olduğu execution id'si")
+    comment="Execution id'si")
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
-    comment="ExecutionOutput'in ait olduğu workspace id'si")
+    comment="Workspace id'si")
     workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
-    comment="ExecutionOutput'in ait olduğu workflow id'si")
+    comment="Workflow id'si")
     node_id = Column(String(20), ForeignKey("nodes.id", ondelete="CASCADE"), nullable=False, index=True,
-    comment="ExecutionOutput'in ait olduğu node id'si")
-    script_id = Column(String(20), ForeignKey("scripts.id", ondelete="CASCADE"), nullable=False, index=True,
-    comment="ExecutionOutput'in ait olduğu script id'si")
+    comment="Node id'si")
+    global_script_id = Column(String(20), ForeignKey("scripts.id", ondelete="SET NULL"), nullable=True, index=True,
+    comment="Global script id'si (global veya custom'dan biri)")
+    custom_script_id = Column(String(20), ForeignKey("custom_scripts.id", ondelete="SET NULL"), nullable=True, index=True,
+    comment="Custom script id'si (global veya custom'dan biri)")
 
-    # ---- Execution Output Content ---- #
-    status = Column(Enum(ExecutionStatuses), nullable=False,
-    comment="ExecutionOutput'in durumu")
+    # ---- Execution Status ---- #
+    status = Column(Enum(ExecutionStatuses), nullable=False, index=True,
+    comment="Çalıştırma durumu")
     started_at = Column(DateTime(timezone=True), nullable=True, index=True,
-    comment="ExecutionOutput'in başlangıç zamanı")
+    comment="Başlangıç zamanı")
     ended_at = Column(DateTime(timezone=True), nullable=True,
-    comment="ExecutionOutput'in bitiş zamanı")
-    data = Column(JSON, nullable=True, default=lambda: {},
-    comment="ExecutionOutput'in verileri")
+    comment="Bitiş zamanı")
+    duration_seconds = Column(Float, nullable=True,
+    comment="Çalışma süresi (saniye)")
+    retry_count = Column(Integer, default=0, nullable=False,
+    comment="Retry sayısı")
 
-    # ---- Execution Error Data ---- #
-    error_message = Column(String(255), nullable=True,
-    comment="ExecutionOutput'in hata mesajı")
-    error_code = Column(Integer, nullable=True,
-    comment="ExecutionOutput'in hata kodu")
-    error_type = Column(String(255), nullable=True,
-    comment="ExecutionOutput'in hata tipi")
+    # ---- Output Data ---- #
+    output_data = Column(JSON, nullable=True, default=lambda: {},
+    comment="Çıktı verileri (output_schema'ya uygun)")
 
-    # ---- Relations ---- #
+    # ---- Error Data ---- #
+    error_type = Column(String(100), nullable=True,
+    comment="Hata tipi")
+    error_message = Column(Text, nullable=True,
+    comment="Hata mesajı")
+    error_traceback = Column(Text, nullable=True,
+    comment="Hata stack trace")
+
+    # ---- Relationships ---- #
     execution = relationship("Execution", back_populates="execution_outputs")
     workspace = relationship("Workspace", back_populates="execution_outputs")
     workflow = relationship("Workflow", back_populates="execution_outputs")
     node = relationship("Node", back_populates="execution_outputs")
-    script = relationship("Script", back_populates="execution_outputs")
+    global_script = relationship("Script", back_populates="execution_outputs")
+    custom_script = relationship("CustomScript", back_populates="execution_outputs")
+
+    # ---- Helper Methods ---- #
+    @property
+    def script(self):
+        """Aktif script'i döndürür"""
+        return self.global_script or self.custom_script
+    
+    @property
+    def script_id(self):
+        """Aktif script ID'sini döndürür"""
+        return self.global_script_id or self.custom_script_id
+    
+    @property
+    def is_success(self) -> bool:
+        return self.status == ExecutionStatuses.COMPLETED
+    
+    @property
+    def is_failed(self) -> bool:
+        return self.status == ExecutionStatuses.FAILED

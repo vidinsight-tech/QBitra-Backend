@@ -11,13 +11,13 @@ class Node(Base, SoftDeleteMixin):
     __tablename__ = "nodes"
     __allow_unmapped__ = True
 
-    # ---- Node ---- #
+    # ---- Relationships ---- #
     workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="Node'in ait olduğu workflow id'si")
-    global_script_id = Column(String(20), ForeignKey("scripts.id", ondelete="CASCADE"), nullable=False, index=True,
-    comment="Node'in ait olduğu global script id'si (global script'in workflow'a bağlı olmadan çalıştırılması için)")
-    custom_script_id = Column(String(20), ForeignKey("custom_scripts.id", ondelete="CASCADE"), nullable=True, index=True,
-    comment="Node'in ait olduğu custom script id'si (custom script'in workflow'a bağlı olarak çalıştırılması için)")
+    global_script_id = Column(String(20), ForeignKey("scripts.id", ondelete="SET NULL"), nullable=True, index=True,
+    comment="Global script id'si (global_script veya custom_script'den biri zorunlu)")
+    custom_script_id = Column(String(20), ForeignKey("custom_scripts.id", ondelete="SET NULL"), nullable=True, index=True,
+    comment="Custom script id'si (global_script veya custom_script'den biri zorunlu)")
 
     # ---- Node Content ---- #
     name = Column(String(255), nullable=False,
@@ -48,8 +48,20 @@ class Node(Base, SoftDeleteMixin):
     # ---- Helper Methods ---- #
     @property
     def script(self):
-        if self.global_script:
-            return self.global_script
-        if self.custom_script:
-            return self.custom_script
-        return None
+        """Aktif script'i döndürür (global veya custom)"""
+        return self.global_script or self.custom_script
+    
+    @property
+    def script_id(self):
+        """Aktif script ID'sini döndürür"""
+        return self.global_script_id or self.custom_script_id
+    
+    @property
+    def is_global_script(self) -> bool:
+        """Global script mi?"""
+        return self.global_script_id is not None
+    
+    @property
+    def is_custom_script(self) -> bool:
+        """Custom script mi?"""
+        return self.custom_script_id is not None

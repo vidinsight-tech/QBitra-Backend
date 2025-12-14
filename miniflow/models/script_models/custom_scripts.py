@@ -80,6 +80,8 @@ class CustomScript(Base, SoftDeleteMixin, TimestampMixin):
     uploader = relationship("User", foreign_keys=[uploaded_by], back_populates="uploaded_scripts")
     review_history = relationship("ScriptReviewHistory", back_populates="script", cascade="all, delete-orphan", order_by="desc(ScriptReviewHistory.created_at)")
     nodes = relationship("Node", foreign_keys="Node.custom_script_id", back_populates="custom_script")
+    execution_inputs = relationship("ExecutionInput", back_populates="custom_script")
+    execution_outputs = relationship("ExecutionOutput", back_populates="custom_script")
     
     # ---- Helper Methods ---- #
     @property
