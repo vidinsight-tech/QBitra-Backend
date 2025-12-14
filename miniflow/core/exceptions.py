@@ -27,6 +27,15 @@ class ErrorCode(Enum):
     EXTERNAL_SERVICE_AUTHENTICATION_ERROR = "EXTERNAL_SERVICE_AUTHENTICATION_ERROR" # 401
     EXTERNAL_SERVICE_RATE_LIMIT_ERROR = "EXTERNAL_SERVICE_RATE_LIMIT_ERROR"         # 429
     EXTERNAL_SERVICE_INVALID_RESPONSE = "EXTERNAL_SERVICE_INVALID_RESPONSE"         # 502
+    
+    # JWT/Token Errors (401)
+    TOKEN_EXPIRED = "TOKEN_EXPIRED"                                                  # 401
+    TOKEN_INVALID = "TOKEN_INVALID"                                                  # 401
+    TOKEN_MISSING = "TOKEN_MISSING"                                                  # 401
+    
+    # Validation/Input Errors (400)
+    INVALID_INPUT = "INVALID_INPUT"                                                  # 400
+    VALIDATION_ERROR = "VALIDATION_ERROR"                                            # 400
 
 
 
@@ -317,4 +326,81 @@ class ExternalServiceInvalidResponseError(AppException):
             ErrorCode.EXTERNAL_SERVICE_INVALID_RESPONSE,
             message,
             error_details=error_details
+        )
+
+
+# ============================================
+# JWT/TOKEN EXCEPTIONS
+# ============================================
+
+class TokenExpiredError(AppException):
+    """JWT token süresi dolmuş"""
+    def __init__(self, token_type: str = "access", message: str = None):
+        message = message or f"The {token_type} token has expired. Please obtain a new token."
+        super().__init__(
+            ErrorCode.TOKEN_EXPIRED,
+            message,
+            error_details={"token_type": token_type}
+        )
+
+
+class TokenInvalidError(AppException):
+    """JWT token geçersiz"""
+    def __init__(self, token_type: str = "access", reason: str = None, message: str = None):
+        message = message or f"The {token_type} token is invalid or malformed."
+        error_details = {"token_type": token_type}
+        if reason:
+            error_details["reason"] = reason
+        super().__init__(
+            ErrorCode.TOKEN_INVALID,
+            message,
+            error_details=error_details
+        )
+
+
+class TokenMissingError(AppException):
+    """JWT token eksik"""
+    def __init__(self, message: str = None):
+        message = message or "Authentication token is missing. Please provide a valid token."
+        super().__init__(
+            ErrorCode.TOKEN_MISSING,
+            message,
+            error_details=None
+        )
+
+
+# ============================================
+# VALIDATION/INPUT EXCEPTIONS
+# ============================================
+
+class InvalidInputError(AppException):
+    """Geçersiz kullanıcı girişi"""
+    def __init__(self, field_name: str = None, expected_type: str = None, actual_value: Any = None, message: str = None):
+        if message is None:
+            if field_name:
+                message = f"Invalid input for field '{field_name}'. Please provide a valid value."
+            else:
+                message = "Invalid input provided. Please check your input and try again."
+        error_details = {}
+        if field_name:
+            error_details["field_name"] = field_name
+        if expected_type:
+            error_details["expected_type"] = expected_type
+        if actual_value is not None:
+            error_details["actual_value"] = str(actual_value)[:100]  # İlk 100 karakter
+        super().__init__(
+            ErrorCode.INVALID_INPUT,
+            message,
+            error_details=error_details if error_details else None
+        )
+
+
+class ValidationError(AppException):
+    """Genel validasyon hatası"""
+    def __init__(self, errors: Dict[str, str] = None, message: str = None):
+        message = message or "Validation failed. Please check the provided data."
+        super().__init__(
+            ErrorCode.VALIDATION_ERROR,
+            message,
+            error_details={"validation_errors": errors} if errors else None
         )
