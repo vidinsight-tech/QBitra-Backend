@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, JSON, ForeignKey, Enum, DateTime
 from sqlalchemy.orm import relationship
 
@@ -25,6 +26,8 @@ class Ticket(Base):
     comment="Ticket metin içeriği")
     status = Column(Enum(TicketStatus), nullable=False, default=TicketStatus.OPEN,
     comment="Ticket durumu")
+    opened_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc),
+    comment="Ticket açıldığında zamanı")
     closed_at = Column(DateTime(timezone=True), nullable=True,
     comment="Ticket çözüldüğünde zamanı")
 

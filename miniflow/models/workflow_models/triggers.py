@@ -4,10 +4,10 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text, JSON
 from sqlalchemy.orm import relationship, ForeignKey
 
 from miniflow.database.models import Base
-from miniflow.database.models.mixins import SoftDeleteMixin
+from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 from miniflow.models.enums import TriggerTypes
 
-class Trigger(Base, SoftDeleteMixin):
+class Trigger(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow trigger modeli"""
     __prefix__ = "TR"
     __tablename__ = "triggers"

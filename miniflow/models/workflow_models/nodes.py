@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text, JSON, Integer
 from sqlalchemy.orm import relationship, ForeignKey
 
 from miniflow.database.models import Base
-from miniflow.database.models.mixins import SoftDeleteMixin
+from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
-class Node(Base, SoftDeleteMixin):
+class Node(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow node modeli"""
     __prefix__ = "ND"
     __tablename__ = "nodes"

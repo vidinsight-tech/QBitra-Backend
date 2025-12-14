@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text
 from sqlalchemy.orm import relationship, ForeignKey
 
 from miniflow.database.models import Base
-from miniflow.database.models.mixins import SoftDeleteMixin
+from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
-class AuthSession(Base, SoftDeleteMixin):
+class AuthSession(Base, SoftDeleteMixin, TimestampMixin):
     """Kullanıcı giriş geçmişi modeli"""
     __prefix__ = "AS"
     __tablename__ = "auth_sessions"

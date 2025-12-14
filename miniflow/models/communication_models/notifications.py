@@ -3,9 +3,10 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
 from miniflow.database.models import Base
+from miniflow.database.models.mixins import TimestampMixin
 
 
-class Notification(Base):
+class Notification(Base, TimestampMixin):
     """Kullanıcı bildirimleri"""
     __prefix__ = "NTC"
     __tablename__ = "notifications"

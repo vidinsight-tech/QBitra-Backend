@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text
 from sqlalchemy.orm import relationship, ForeignKey
 
 from miniflow.database.models import Base
-from miniflow.database.models.mixins import SoftDeleteMixin
+from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
-class Edge(Base, SoftDeleteMixin):
+class Edge(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow edge modeli"""
     __prefix__ = "ED"
     __tablename__ = "edges"

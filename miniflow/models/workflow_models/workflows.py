@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON
 from sqlalchemy.orm import relationship, ForeignKey
 
 from miniflow.database.models import Base
-from miniflow.database.models.mixins import SoftDeleteMixin
+from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
-class Workflow(Base, SoftDeleteMixin):
+class Workflow(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow modeli"""
     __prefix__ = "WF"
     __tablename__ = "workflows"

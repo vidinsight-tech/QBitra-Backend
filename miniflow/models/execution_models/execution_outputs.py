@@ -2,10 +2,11 @@ from sqlalchemy import Column, String, ForeignKey, Integer, Text, Float, Enum, D
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
+from miniflow.database.models.mixins import TimestampMixin
 from miniflow.models.enums import ExecutionStatuses
 
 
-class ExecutionOutput(Base):
+class ExecutionOutput(Base, TimestampMixin):
     """Execution output - Node çalıştırma sonuçları"""
     __prefix__ = "EXO"
     __tablename__ = "execution_outputs"

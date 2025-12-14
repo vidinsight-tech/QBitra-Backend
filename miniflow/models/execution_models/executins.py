@@ -3,9 +3,10 @@ from sqlalchemy.orm import relationship
 from datetime import timezone
 
 from miniflow.database.models import Base
+from miniflow.database.models.mixins import TimestampMixin
 from miniflow.models.enums import ExecutionStatuses
 
-class Execution(Base):
+class Execution(Base, TimestampMixin):
     __prefix__ = "EXE"
     __tablename__ = "executions"
 

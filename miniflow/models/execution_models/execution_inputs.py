@@ -2,9 +2,10 @@ from sqlalchemy import Column, String, ForeignKey, Integer, JSON
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
+from miniflow.database.models.mixins import TimestampMixin
 
 
-class ExecutionInput(Base):
+class ExecutionInput(Base, TimestampMixin):
     """Execution input - Node çalıştırma için hazırlanan input verileri"""
     __prefix__ = "EXI"
     __tablename__ = "execution_inputs"
