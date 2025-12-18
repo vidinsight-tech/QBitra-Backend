@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, JSON, ForeignKey, DateTime, Integer, Enum, Boolean
+from sqlalchemy import Column, String, Text, JSON, ForeignKey, DateTime, Integer, Enum, Boolean, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -10,7 +10,13 @@ class CrashLog(Base, TimestampMixin):
     """Sistemde önemli hataları tutan crash log modeli."""
     __prefix__ = "CRL"
     __tablename__ = "crash_logs"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_crash_logs_severity_status_date', 'severity', 'status', 'created_at'),
+        Index('idx_crash_logs_error_type_date', 'error_type', 'created_at'),
+        Index('idx_crash_logs_workflow_date', 'workflow_id', 'created_at'),
+    )
 
     # ---- User Context (Optional) ---- #
     user_id = Column(String(20), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True,

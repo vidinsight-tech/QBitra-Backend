@@ -11,7 +11,14 @@ class CustomScript(Base, SoftDeleteMixin, TimestampMixin):
     """Kullanıcı script'leri - workspace'lerde yüklenen onay workflow'u ile custom script'ler"""
     __prefix__ = "CSC"
     __tablename__ = 'custom_scripts'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'name', name='uq_custom_script_workspace_name'),
+        Index('idx_custom_scripts_workspace_approval', 'workspace_id', 'approval_status'),
+        Index('idx_custom_scripts_workspace_test', 'workspace_id', 'test_status'),
+        Index('idx_custom_scripts_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # Workspace ve sahiplik
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,

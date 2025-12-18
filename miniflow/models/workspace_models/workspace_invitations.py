@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -11,7 +11,16 @@ class WorkspaceInvitation(Base, SoftDeleteMixin, TimestampMixin):
     """Workspace davetleri - Workspace'e kullanıcı davet yönetimi"""
     __prefix__ = "WIN"
     __tablename__ = 'workspace_invitations'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        # Basit unique constraint - aynı workspace'de aynı email'e sadece bir pending invitation
+        # PostgreSQL'de partial unique index için: Index('idx_workspace_invitations_pending', 'workspace_id', 'email', 'status', unique=True, postgresql_where=(status == 'PENDING')),
+        UniqueConstraint('workspace_id', 'email', name='uq_workspace_invitation_workspace_email'),
+        Index('idx_workspace_invitations_workspace_status', 'workspace_id', 'status'),
+        Index('idx_workspace_invitations_email_status', 'email', 'status'),
+        Index('idx_workspace_invitations_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,
@@ -32,7 +41,7 @@ class WorkspaceInvitation(Base, SoftDeleteMixin, TimestampMixin):
     # ---- Status ---- #
     status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False, index=True,
     comment="Davet durumu (PENDING, ACCEPTED, DECLINED, EXPIRED, CANCELLED)")
-    expires_at = Column(DateTime(timezone=True), nullable=True,
+    expires_at = Column(DateTime(timezone=True), nullable=True, index=True,
     comment="Davet son geçerlilik tarihi")
     responded_at = Column(DateTime(timezone=True), nullable=True,
     comment="Yanıt zamanı (kabul/red)")

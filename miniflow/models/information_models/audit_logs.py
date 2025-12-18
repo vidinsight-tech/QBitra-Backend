@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, JSON, ForeignKey, Enum
+from sqlalchemy import Column, String, Text, JSON, ForeignKey, Enum, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -10,7 +10,13 @@ class AuditLog(Base, TimestampMixin):
     """Audit log - Workspace'te yapılan tüm işlemlerin kaydı"""
     __prefix__ = "AUD"
     __tablename__ = "audit_logs"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_audit_logs_user_action_date', 'user_id', 'action_type', 'created_at'),
+        Index('idx_audit_logs_resource_date', 'resource_type', 'resource_id', 'created_at'),
+        Index('idx_audit_logs_workspace_date', 'workspace_id', 'created_at'),
+    )
 
     # ---- Workspace Context ---- #
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
@@ -45,7 +51,7 @@ class AuditLog(Base, TimestampMixin):
     comment="Değişiklik sonrası değer (JSON)")
 
     # ---- Additional Context ---- #
-    metadata = Column(JSON, nullable=True,
+    audit_metadata = Column(JSON, nullable=True,
     comment="Ek bilgiler (JSON)")
 
     # ---- Relationships ---- #

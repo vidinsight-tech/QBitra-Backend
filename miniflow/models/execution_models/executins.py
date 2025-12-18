@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, Enum, DateTime, JSON
+from sqlalchemy import Column, String, ForeignKey, Integer, Enum, DateTime, JSON, Index
 from sqlalchemy.orm import relationship
 from datetime import timezone
 
@@ -9,6 +9,13 @@ from miniflow.models.enums import ExecutionStatuses
 class Execution(Base, TimestampMixin):
     __prefix__ = "EXE"
     __tablename__ = "executions"
+
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_executions_workspace_status_time', 'workspace_id', 'status', 'start_time'),
+        Index('idx_executions_workflow_status', 'workflow_id', 'status'),
+        Index('idx_executions_status_time', 'status', 'start_time'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
@@ -21,11 +28,11 @@ class Execution(Base, TimestampMixin):
     comment="Execution'in ait olduğu parent execution id'si")
 
     # ---- Execution Content ---- #
-    status = Column(Enum(ExecutionStatuses), nullable=False,
+    status = Column(Enum(ExecutionStatuses), nullable=False, index=True,
     comment="Execution'in durumu")
-    start_time = Column(DateTime(timezone=True), nullable=False,
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True,
     comment="Execution'in başlangıç zamanı")
-    end_time = Column(DateTime(timezone=True), nullable=True,
+    end_time = Column(DateTime(timezone=True), nullable=True, index=True,
     comment="Execution'in bitiş zamanı")
     input_data = Column(JSON, nullable=True,
     comment="Execution'in giriş verileri")

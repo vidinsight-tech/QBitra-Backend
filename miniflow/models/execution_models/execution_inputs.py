@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, JSON
+from sqlalchemy import Column, String, ForeignKey, Integer, JSON, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,11 @@ class ExecutionInput(Base, TimestampMixin):
     """Execution input - Node çalıştırma için hazırlanan input verileri"""
     __prefix__ = "EXI"
     __tablename__ = "execution_inputs"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_execution_inputs_execution_node', 'execution_id', 'node_id'),
+    )
 
     # ---- Relationships ---- #
     execution_id = Column(String(20), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, index=True,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, Float, Text, JSON
+from sqlalchemy import Column, String, Integer, Boolean, Float, Text, JSON, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,12 @@ class WorkspacePlan(Base, TimestampMixin):
     """Workspace planları - Plan limitleri ve özellik tanımları"""
     __prefix__ = "WPL"
     __tablename__ = 'workspace_plans'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_workspace_plans_display_order', 'display_order'),
+        Index('idx_workspace_plans_created', 'created_at'),
+    )
 
     # ---- Basic Information ---- #
     name = Column(String(50), nullable=False, unique=True, index=True,

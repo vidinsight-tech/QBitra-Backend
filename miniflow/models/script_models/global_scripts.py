@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Float, Text, ForeignKey, JSON, Enum
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Float, Text, ForeignKey, JSON, Enum, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -10,7 +10,12 @@ class Script(Base, SoftDeleteMixin, TimestampMixin):
     """Global script kütüphanesi - versiyonlama, test ve performans takibi ile çalıştırılabilir script'ler"""
     __prefix__ = "SCR"
     __tablename__ = 'scripts'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_scripts_category_subcategory', 'category', 'subcategory'),
+        Index('idx_scripts_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # Temel bilgiler
     name = Column(String(100), nullable=False, unique=True, index=True,
@@ -58,5 +63,5 @@ class Script(Base, SoftDeleteMixin, TimestampMixin):
 
     # İlişkiler
     nodes_as_global = relationship("Node", foreign_keys="Node.global_script_id", back_populates="global_script")
-    execution_inputs = relationship("ExecutionInput", back_populates="script")
-    execution_outputs = relationship("ExecutionOutput", back_populates="script")
+    execution_inputs = relationship("ExecutionInput", foreign_keys="ExecutionInput.global_script_id", back_populates="global_script")
+    execution_outputs = relationship("ExecutionOutput", foreign_keys="ExecutionOutput.global_script_id", back_populates="global_script")

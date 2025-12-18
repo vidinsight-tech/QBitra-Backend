@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple, Optional
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, JSON, Enum, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, JSON, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -12,7 +12,14 @@ class Database(Base, SoftDeleteMixin, TimestampMixin):
     """Veritabanı bağlantıları - Workspace içinde kullanılan veritabanı bağlantılarını yönetir"""
     __prefix__ = "DBS"
     __tablename__ = 'databases'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'name', name='uq_database_workspace_name'),
+        Index('idx_databases_workspace_type_active', 'workspace_id', 'database_type', 'is_active'),
+        Index('idx_databases_owner_active', 'owner_id', 'is_active'),
+        Index('idx_databases_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,

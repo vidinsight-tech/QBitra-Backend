@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Boolean, Text, JSON, Integer
-from sqlalchemy.orm import relationship, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, Text, JSON, Integer, Index
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
 from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
@@ -9,7 +10,12 @@ class Node(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow node modeli"""
     __prefix__ = "ND"
     __tablename__ = "nodes"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_nodes_workflow_name', 'workflow_id', 'name'),
+        Index('idx_nodes_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,
@@ -20,7 +26,7 @@ class Node(Base, SoftDeleteMixin, TimestampMixin):
     comment="Custom script id'si (global_script veya custom_script'den biri zorunlu)")
 
     # ---- Node Content ---- #
-    name = Column(String(255), nullable=False,
+    name = Column(String(255), nullable=False, index=True,
     comment="Node'un adı")
     description = Column(Text, nullable=True,
     comment="Node'un açıklaması")
@@ -33,7 +39,7 @@ class Node(Base, SoftDeleteMixin, TimestampMixin):
     comment="Node'un giriş şeması")
     output_schema = Column(JSON, nullable=True, default=lambda: {},
     comment="Node'un çıktı şeması")
-    metadata = Column(JSON, nullable=True, default=lambda: {},
+    node_metadata = Column(JSON, nullable=True, default=lambda: {},
     comment="Node'un meta verileri")
     
     # ---- Relations ---- # 

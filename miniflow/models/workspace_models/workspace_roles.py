@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, Text
+from sqlalchemy import Column, String, Integer, Boolean, Text, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,11 @@ class WorkspaceRole(Base, SoftDeleteMixin, TimestampMixin):
     """Workspace rolleri ve yetkileri - Workspace içinde kullanıcı rollerini ve izinlerini yönetir"""
     __prefix__ = "WRL"
     __tablename__ = 'workspace_roles'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_workspace_roles_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Basic Information ---- #
     name = Column(String(50), nullable=False, unique=True, index=True,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer
+from sqlalchemy import Column, String, ForeignKey, Integer, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -7,6 +7,14 @@ from miniflow.database.models import Base
 class TicketAttachment(Base):
     __prefix__ = "TCA"
     __tablename__ = "ticket_attachments"
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('ticket_id', 'file_name', name='uq_ticket_attachment_ticket_file'),
+        UniqueConstraint('message_id', 'file_name', name='uq_ticket_attachment_message_file'),
+        Index('idx_ticket_attachments_ticket', 'ticket_id'),
+        Index('idx_ticket_attachments_message', 'message_id'),
+    )
 
     # ---- Relationships ---- #
     ticket_id = Column(String(20), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=True, index=True,

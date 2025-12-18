@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -10,8 +10,14 @@ class ApiKey(Base, SoftDeleteMixin, TimestampMixin):
     """API anahtarları - Workspace içinde kullanılan API key'leri yönetir"""
     __prefix__ = "API"
     __tablename__ = 'api_keys'
-    __allow_unmapped__ = True
-
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'name', name='uq_api_key_workspace_name'),
+        Index('idx_api_keys_workspace_active', 'workspace_id', 'is_active'),
+        Index('idx_api_keys_owner_active', 'owner_id', 'is_active'),
+        Index('idx_api_keys_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,

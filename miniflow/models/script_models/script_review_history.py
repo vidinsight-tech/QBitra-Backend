@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, ForeignKey, Enum, Boolean, Integer
+from sqlalchemy import Column, String, Text, ForeignKey, Enum, Boolean, Integer, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -11,7 +11,13 @@ class ScriptReviewHistory(Base, SoftDeleteMixin, TimestampMixin):
     """Script review mesajlaşma zinciri - detaylı review mesajlaşma sistemi"""
     __prefix__ = "SRH"
     __tablename__ = 'script_review_history'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_script_review_history_script_date', 'script_id', 'created_at'),
+        Index('idx_script_review_history_reviewer_date', 'reviewed_by', 'created_at'),
+        Index('idx_script_review_history_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Script Relationship ---- #
     script_id = Column(String(20), ForeignKey('custom_scripts.id', ondelete='CASCADE'), nullable=False, index=True,

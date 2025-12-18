@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, Text, Float, Enum, DateTime, JSON
+from sqlalchemy import Column, String, ForeignKey, Integer, Text, Float, Enum, DateTime, JSON, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -10,7 +10,12 @@ class ExecutionOutput(Base, TimestampMixin):
     """Execution output - Node çalıştırma sonuçları"""
     __prefix__ = "EXO"
     __tablename__ = "execution_outputs"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_execution_outputs_execution_node', 'execution_id', 'node_id'),
+        Index('idx_execution_outputs_execution_status', 'execution_id', 'status'),
+    )
 
     # ---- Relationships ---- #
     execution_id = Column(String(20), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, index=True,

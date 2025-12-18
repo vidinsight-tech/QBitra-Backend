@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Boolean, Text
-from sqlalchemy.orm import relationship, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, Text, UniqueConstraint, Index
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
 from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
@@ -9,7 +10,14 @@ class Edge(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow edge modeli"""
     __prefix__ = "ED"
     __tablename__ = "edges"
-    __allow_unmapped__ = True
+
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workflow_id', 'source_node_id', 'target_node_id', name='uq_edge_workflow_source_target'),
+        Index('idx_edges_workflow_source', 'workflow_id', 'source_node_id'),
+        Index('idx_edges_workflow_target', 'workflow_id', 'target_node_id'),
+        Index('idx_edges_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Edge ---- #
     workflow_id = Column(String(20), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True,

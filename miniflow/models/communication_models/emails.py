@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from miniflow.database.models import Base
 
@@ -7,6 +7,13 @@ class Email(Base):
     """Kullanıcı modeli - Tüm mixin'lerle."""
     __prefix__ = "EML"
     __tablename__ = 'emails'
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('provider', 'provider_message_id', name='uq_email_provider_message_id'),
+        Index('idx_emails_to_status_sent', 'to_email', 'status', 'sent_at'),
+        Index('idx_emails_status_sent', 'status', 'sent_at'),
+    )
 
     # ---- Email Content ---- #
     from_email = Column(String(255), nullable=False,
@@ -29,7 +36,7 @@ class Email(Base):
     comment="Sağlayıcında dönen id")
 
     # ---- Delivery State ---- #
-    status = Column(String(50), nullable=False, default="pending",
+    status = Column(String(50), nullable=False, default="pending", index=True,
     comment="E-posta gönderim durumu")
     is_test = Column(Boolean, default=False,
     comment="Test E-postası olup olmadığına dair flag")
@@ -43,7 +50,7 @@ class Email(Base):
     comment="Provider tarafında dönülen responseun tamamı")
 
     # ---- Timestamps ---- #
-    sent_at = Column(DateTime(timezone=True), nullable=True,
+    sent_at = Column(DateTime(timezone=True), nullable=True, index=True,
     comment="Sistemnde gönderilme zamanı")
     delivered_at = Column(DateTime(timezone=True), nullable=True,
     comment="Kaşrı tarafı teslim zamanı")

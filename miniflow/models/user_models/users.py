@@ -2,7 +2,7 @@ import re
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Dict
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -13,7 +13,11 @@ class User(Base, SoftDeleteMixin):
     """Kullanıcı modeli"""
     __prefix__ = "USR"
     __tablename__ = "users"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_users_softdelete', 'is_deleted'),
+    )
 
     # ---- User Authentication Information ---- #
     username = Column(String(100), nullable=False, unique=True, index=True, 
@@ -22,7 +26,7 @@ class User(Base, SoftDeleteMixin):
     comment="E-posta adresi")
     password = Column(String(100), nullable=False, 
     comment="Kullanıcı şifresi")
-    is_admin = Column(Boolean, default=False, nullable=False,
+    is_admin = Column(Boolean, default=False, nullable=False, index=True,
     comment="Kullanıcı admin mi?")
 
     # ---- User Information ---- #
@@ -32,7 +36,7 @@ class User(Base, SoftDeleteMixin):
     comment="Kullanıcı soyadı")
     country_code = Column(String(2), nullable=True, 
     comment="ISO ülke kodu")
-    phone_number = Column(String(20), nullable=True, 
+    phone_number = Column(String(20), nullable=True, unique=True, index=True,
     comment="E.164 formatı: +905551234567")
 
     # ---- User Information Verification Status ---- #
@@ -42,7 +46,7 @@ class User(Base, SoftDeleteMixin):
     comment="Telefon doğrulama tarihi")
 
     # ---- User Information Verification Tokens ---- #
-    email_verification_token = Column(String(100), nullable=True, 
+    email_verification_token = Column(String(100), nullable=True, index=True,
     comment="E-posta doğrulama tokeni")
     email_verification_token_expires_at = Column(DateTime(timezone=True), nullable=True, 
     comment="E-posta doğrulama tokeni süresi")
@@ -50,7 +54,7 @@ class User(Base, SoftDeleteMixin):
     comment="Telefon doğrulama tokeni")
     phone_verification_token_expires_at = Column(DateTime(timezone=True), nullable=True, 
     comment="Telefon doğrulama tokeni süresi")
-    password_reset_token = Column(String(100), nullable=True, 
+    password_reset_token = Column(String(100), nullable=True, index=True,
     comment="Şifre sıfırlama tokeni")
     password_reset_token_expires_at = Column(DateTime(timezone=True), nullable=True, 
     comment="Şifre sıfırlama tokeni süresi")
@@ -66,7 +70,7 @@ class User(Base, SoftDeleteMixin):
     comment="Kullanıcı adı son doğrulama tarihi")
 
     # ---- User Account Suspension Status ---- #
-    is_suspended = Column(Boolean, default=False, nullable=False,
+    is_suspended = Column(Boolean, default=False, nullable=False, index=True,
     comment="Kullanıcı hesabı askıya alındı mı?")
     suspended_at = Column(DateTime(timezone=True), nullable=True, 
     comment="Kullanıcı hesabı askıya alındığı tarih")
@@ -76,7 +80,7 @@ class User(Base, SoftDeleteMixin):
     comment="Kullanıcı hesabı askıya alındığı süre sonu")
 
     # ---- User Account Lock Status ---- #
-    is_locked = Column(Boolean, default=False, nullable=False,
+    is_locked = Column(Boolean, default=False, nullable=False, index=True,
     comment="Kullanıcı hesabı kilitlendi mi?")
     locked_at = Column(DateTime(timezone=True), nullable=True, 
     comment="Kullanıcı hesabı kilitlendiği tarih")
@@ -93,7 +97,7 @@ class User(Base, SoftDeleteMixin):
 
     # ---- Relationships ---- #
     agreement_acceptances = relationship("UserAgreementAcceptance", back_populates="user")
-    auth_sessions = relationship("AuthSession", back_populates="user")
+    auth_sessions = relationship("AuthSession", foreign_keys="AuthSession.user_id", back_populates="user")
     login_history = relationship("LoginHistory", back_populates="user")
     uploaded_scripts = relationship("CustomScript", foreign_keys="CustomScript.uploaded_by", back_populates="uploader")
     script_reviews = relationship("ScriptReviewHistory", foreign_keys="ScriptReviewHistory.reviewed_by", back_populates="reviewer")

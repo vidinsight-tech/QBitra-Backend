@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON, BigInteger, UniqueConstraint
-from sqlalchemy.orm import relationship, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON, BigInteger, UniqueConstraint, Index
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
 from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
@@ -10,7 +11,14 @@ class File(Base, SoftDeleteMixin, TimestampMixin):
     """Yüklenen dosyalar - Workspace içinde upload edilen dosyaları yönetir"""
     __prefix__ = "FLE"
     __tablename__ = "files"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'name', name='uq_file_workspace_name'),
+        Index('idx_files_workspace_mime', 'workspace_id', 'mime_type'),
+        Index('idx_files_owner_created', 'owner_id', 'created_at'),
+        Index('idx_files_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,
@@ -27,7 +35,7 @@ class File(Base, SoftDeleteMixin, TimestampMixin):
     comment="Dosya yolu (file helper formatında)")
     file_size = Column(BigInteger, nullable=False,
     comment="Dosya boyutu (byte)")
-    mime_type = Column(String(100), nullable=True,
+    mime_type = Column(String(100), nullable=True, index=True,
     comment="Dosya MIME tipi")
     file_extension = Column(String(20), nullable=True,
     comment="Dosya uzantısı")

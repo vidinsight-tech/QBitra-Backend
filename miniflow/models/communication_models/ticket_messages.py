@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, JSON, ForeignKey, Integer, DateTime
+from sqlalchemy import Column, String, Text, JSON, ForeignKey, Integer, DateTime, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -8,6 +8,12 @@ from miniflow.database.models import Base
 class TicketMessage(Base):
     __prefix__ = "TCKM"
     __tablename__ = "ticket_messages"
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('ticket_id', 'order', name='uq_ticket_message_ticket_order',),
+        Index('idx_ticket_messages_ticket_date', 'ticket_id', 'date_time'),
+    )
 
     # ---- Ticket (Parent) Relationship ---- #
     ticket_id = Column(String(20), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True,

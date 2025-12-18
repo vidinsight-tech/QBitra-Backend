@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, Float, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, Float, Text, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,12 @@ class Workspace(Base, SoftDeleteMixin, TimestampMixin):
     """Workspace - Çalışma alanları, workflow'ları organize etmek ve takım işbirliği için"""
     __prefix__ = "WSP"
     __tablename__ = 'workspaces'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_workspaces_softdelete', 'is_deleted', 'created_at'),
+        Index('idx_workspaces_owner', 'owner_id', 'is_deleted'),
+    )
 
     # ---- Basic Information ---- #
     name = Column(String(100), nullable=False, index=True,

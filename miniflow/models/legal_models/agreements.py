@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Boolean, DateTime, Integer, Enum, JSON
+from sqlalchemy import Column, String, Text, ForeignKey, Boolean, DateTime, Integer, Enum, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,13 @@ from miniflow.models.enums import AgreementType, AgreementStatus
 class Agreement(Base, TimestampMixin):
     __prefix__ = "AGR"
     __tablename__ = "agreements"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('agreement_type', 'language', name='uq_agreement_type_language'),
+        Index('idx_agreements_type_status', 'agreement_type', 'status'),
+        Index('idx_agreements_status_required', 'status', 'is_required'),
+    )
 
     # ---- Agreement Information ---- #
     agreement_type = Column(Enum(AgreementType), nullable=False, index=True,
@@ -45,15 +51,15 @@ class Agreement(Base, TimestampMixin):
     comment="Son geçerlilik tarihi (opsiyonel)")
     jurisdiction = Column(String(100), nullable=True,
     comment="Yargı yetkisi (ülke/bölge)")
-    language = Column(String(10), nullable=False, default="tr",
+    language = Column(String(10), nullable=False, default="tr", index=True,
     comment="Sözleşme dili (tr, en vb.)")
     
     # ---- Metadata ---- #
-    metadata = Column(JSON, nullable=True,
+    agreement_metadata = Column(JSON, nullable=True,
     comment="Ek metadata bilgileri")
     
     # ---- Relations ---- #
     current_version = relationship("AgreementVersion", foreign_keys=[current_version_id], post_update=True)
-    versions = relationship("AgreementVersion", back_populates="agreement", cascade="all, delete-orphan", order_by="desc(AgreementVersion.version_number)")
+    versions = relationship("AgreementVersion", foreign_keys="AgreementVersion.agreement_id", back_populates="agreement", cascade="all, delete-orphan", order_by="desc(AgreementVersion.version_number)")
     acceptances = relationship("UserAgreementAcceptance", back_populates="agreement")
 

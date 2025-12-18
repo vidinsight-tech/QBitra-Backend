@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, ForeignKey, Integer, DateTime, Boolean
+from sqlalchemy import Column, String, Text, ForeignKey, Integer, DateTime, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,13 @@ class AgreementVersion(Base, TimestampMixin):
     """Sözleşme versiyonları modeli - Her sözleşmenin versiyon geçmişi."""
     __prefix__ = "AGV"
     __tablename__ = "agreement_versions"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('agreement_id', 'version_number', name='uq_agreement_version_number'),
+        Index('idx_agreement_versions_agreement_active', 'agreement_id', 'is_active'),
+        Index('idx_agreement_versions_agreement_version', 'agreement_id', 'version_number'),
+    )
 
     # ---- Agreement Relationship ---- #
     agreement_id = Column(String(20), ForeignKey("agreements.id", ondelete="CASCADE"), nullable=False, index=True,

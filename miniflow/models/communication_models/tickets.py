@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, JSON, ForeignKey, Enum, DateTime
+from sqlalchemy import Column, String, Text, JSON, ForeignKey, Enum, DateTime, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -8,6 +8,12 @@ from miniflow.models.enums import TicketTypes, TicketStatus
 class Ticket(Base):
     __prefix__ = "TCK"
     __tablename__ = "tickets"
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_tickets_user_status_opened', 'user_id', 'status', 'opened_at'),
+        Index('idx_tickets_status_opened', 'status', 'opened_at'),
+    )
 
     # ---- User Context ---- #
     user_id = Column(String(20), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True,

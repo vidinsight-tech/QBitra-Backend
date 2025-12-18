@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON
-from sqlalchemy.orm import relationship, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, JSON, UniqueConstraint, Index
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
 from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
@@ -9,13 +10,18 @@ class Workflow(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow modeli"""
     __prefix__ = "WF"
     __tablename__ = "workflows"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'name', name='uq_workflow_workspace_name'),
+        Index('idx_workflows_softdelete', 'is_deleted', 'created_at'),
+    )
 
     workspace_id = Column(String(20), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True,
     comment="Workflow'un ait olduğu workspace id'si")
 
     # ---- Workflow Content ---- #
-    name = Column(String(255), nullable=False,
+    name = Column(String(255), nullable=False, index=True,
     comment="Workflow'un adı")
     description = Column(Text, nullable=True,
     comment="Workflow'un açıklaması")

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Boolean, Text
-from sqlalchemy.orm import relationship, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, Index
+from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
 from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
@@ -9,7 +9,12 @@ class AuthSession(Base, SoftDeleteMixin, TimestampMixin):
     """Kullanıcı giriş geçmişi modeli"""
     __prefix__ = "AS"
     __tablename__ = "auth_sessions"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_auth_sessions_user_active', 'user_id', 'is_revoked', 'access_token_expires_at'),
+        Index('idx_auth_sessions_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Auth Session ---- #
     user_id = Column(String(20), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
@@ -40,7 +45,7 @@ class AuthSession(Base, SoftDeleteMixin, TimestampMixin):
     comment="Oturum iptal edildi mi?")
     revoked_at = Column(DateTime(timezone=True), nullable=True,
     comment="Oturum iptal edildiği tarih")
-    revoked_by = Column(String(20), ForeignKey("users.id", ondelete="CASCADE"), nullable=True,
+    revoked_by = Column(String(20), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True,
     comment="Oturum iptal eden kullanıcı id'si")
     revocation_at = Column(DateTime(timezone=True), nullable=True,
     comment="Oturum iptal edilme tarihi")
@@ -60,5 +65,6 @@ class AuthSession(Base, SoftDeleteMixin, TimestampMixin):
     comment="Oturum başlatıldığı cihaz adı")
 
     # ---- Relations ---- #
-    user = relationship("User", back_populates="auth_sessions")
+    user = relationship("User", foreign_keys=[user_id], back_populates="auth_sessions")
+    revoker = relationship("User", foreign_keys=[revoked_by])
     login_history = relationship("LoginHistory", back_populates="session")

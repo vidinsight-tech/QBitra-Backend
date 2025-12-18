@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Text, JSON
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Text, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -9,7 +9,13 @@ class UserAgreementAcceptance(Base, TimestampMixin):
     """Kullanıcı sözleşme kabul kayıtları modeli."""
     __prefix__ = "UAA"
     __tablename__ = "user_agreement_acceptances"
-    __allow_unmapped__ = True
+
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('user_id', 'agreement_id', 'agreement_version_id', name='uq_user_agreement_acceptance'),
+        Index('idx_user_agreement_acceptances_user_agreement_active', 'user_id', 'agreement_id', 'is_active'),
+        Index('idx_user_agreement_acceptances_agreement_date', 'agreement_id', 'accepted_at'),
+    )
 
     # ---- User Relationship ---- #
     user_id = Column(String(20), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,

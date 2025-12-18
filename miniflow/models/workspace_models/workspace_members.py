@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -10,7 +10,14 @@ class WorkspaceMember(Base, SoftDeleteMixin, TimestampMixin):
     """Workspace üyeleri - User ve Workspace arasında many-to-many ilişki"""
     __prefix__ = "WMB"
     __tablename__ = 'workspace_members'
-    __allow_unmapped__ = True
+
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'user_id', name='uq_workspace_member_workspace_user'),
+        Index('idx_workspace_members_workspace_role', 'workspace_id', 'role_id'),
+        Index('idx_workspace_members_user_workspace', 'user_id', 'workspace_id'),
+        Index('idx_workspace_members_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,
@@ -19,7 +26,7 @@ class WorkspaceMember(Base, SoftDeleteMixin, TimestampMixin):
     comment="Kullanıcı ID'si")
     role_id = Column(String(20), ForeignKey('workspace_roles.id', ondelete='RESTRICT'), nullable=False, index=True,
     comment="Kullanıcı rolü ID'si")
-    invited_by = Column(String(20), ForeignKey('users.id', ondelete='SET NULL'), nullable=True,
+    invited_by = Column(String(20), ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True,
     comment="Daveti gönderen kullanıcı (null = owner)")
     
     # ---- Membership Details ---- #

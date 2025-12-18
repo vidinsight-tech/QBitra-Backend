@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON, Enum, UniqueConstraint
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, JSON, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -11,7 +11,14 @@ class Credential(Base, SoftDeleteMixin, TimestampMixin):
     """API credentials ve secrets - Workspace içinde kullanılan API credentials ve secrets'ı yönetir"""
     __prefix__ = "CRD"
     __tablename__ = 'credentials'
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'name', name='uq_credential_workspace_name'),
+        Index('idx_credentials_workspace_type_active', 'workspace_id', 'credential_type', 'is_active'),
+        Index('idx_credentials_owner_active', 'owner_id', 'is_active'),
+        Index('idx_credentials_softdelete', 'is_deleted', 'created_at'),
+    )
 
     # ---- Relationships ---- #
     workspace_id = Column(String(20), ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True,

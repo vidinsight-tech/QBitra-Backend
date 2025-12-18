@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, JSON, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, String, Text, JSON, ForeignKey, Boolean, DateTime, Index
 from miniflow.database.models import Base
 from miniflow.database.models.mixins import TimestampMixin
 
@@ -6,6 +6,11 @@ from miniflow.database.models.mixins import TimestampMixin
 class SystemSetting(Base, TimestampMixin):
     __prefix__ = "SYS"
     __tablename__ = "system_settings"
+
+    # ---- Table Args ---- #
+    __table_args__ = (
+        Index('idx_system_settings_category_key', 'category', 'key'),
+    )
 
     # ---- Setting Information ---- #
     key = Column(String(255), nullable=False, unique=True, index=True,

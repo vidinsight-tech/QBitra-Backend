@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer
+from sqlalchemy import Column, String, ForeignKey, Integer, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from miniflow.database.models import Base
@@ -8,7 +8,12 @@ class EmailAttachment(Base):
     """E-posta ekleri modeli - E-postalara eklenen dosyalar."""
     __prefix__ = "EMA"
     __tablename__ = "email_attachments"
-    __allow_unmapped__ = True
+    
+    # ---- Table Args ---- #
+    __table_args__ = (
+        UniqueConstraint('email_id', 'file_name', name='uq_email_attachment_email_file'),
+        Index('idx_email_attachments_email', 'email_id'),
+    )
 
     # ---- Email Relationship ---- #
     email_id = Column(String(20), ForeignKey("emails.id", ondelete="CASCADE"), nullable=False, index=True,
