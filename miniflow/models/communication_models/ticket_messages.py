@@ -6,7 +6,7 @@ from miniflow.database.models import Base
 
 
 class TicketMessage(Base):
-    __prefix__ = "TCKM"
+    __prefix__ = "TKM"
     __tablename__ = "ticket_messages"
     
     # ---- Table Args ---- #

@@ -7,7 +7,7 @@ from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
 class AuthSession(Base, SoftDeleteMixin, TimestampMixin):
     """Kullanıcı giriş geçmişi modeli"""
-    __prefix__ = "AS"
+    __prefix__ = "AUS"
     __tablename__ = "auth_sessions"
     
     # ---- Table Args ---- #

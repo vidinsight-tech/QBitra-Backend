@@ -8,7 +8,7 @@ from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
 class Edge(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow edge modeli"""
-    __prefix__ = "ED"
+    __prefix__ = "EDG"
     __tablename__ = "edges"
 
     # ---- Table Args ---- #

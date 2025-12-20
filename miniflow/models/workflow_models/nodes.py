@@ -8,7 +8,7 @@ from miniflow.database.models.mixins import SoftDeleteMixin, TimestampMixin
 
 class Node(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow node modeli"""
-    __prefix__ = "ND"
+    __prefix__ = "NOD"
     __tablename__ = "nodes"
     
     # ---- Table Args ---- #

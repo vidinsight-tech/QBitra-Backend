@@ -9,7 +9,7 @@ from miniflow.models.enums import TriggerTypes
 
 class Trigger(Base, SoftDeleteMixin, TimestampMixin):
     """Workflow trigger modeli"""
-    __prefix__ = "TR"
+    __prefix__ = "TRG"
     __tablename__ = "triggers"
     
     # ---- Table Args ---- #
