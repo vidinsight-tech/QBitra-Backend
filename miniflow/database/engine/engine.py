@@ -1,6 +1,7 @@
 import time
 import weakref
 import threading
+import logging
 from functools import wraps
 from contextlib import contextmanager
 from typing import Optional, Callable, TypeVar, Tuple, Type, Set
@@ -8,6 +9,8 @@ from typing import Optional, Callable, TypeVar, Tuple, Type, Set
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine, Engine, text
 from sqlalchemy.exc import SQLAlchemyError, OperationalError, DBAPIError
+
+logger = logging.getLogger(__name__)
 
 from miniflow.database.config import DatabaseConfig
 from miniflow.core.exceptions import (
@@ -1146,6 +1149,7 @@ class DatabaseEngine:
         context_start_time = None
         context_duration = None
         success = False
+        timeout_reset_command = None  # Store reset command for timeout cleanup
         
         try:
             # Isolation level handling (SQLAlchemy 2.0 compatible)
@@ -1172,8 +1176,9 @@ class DatabaseEngine:
                 session = self._session_factory()
             
             # Query timeout ayarla (database-specific)
+            # Store reset command to prevent timeout leakage across connections
             if timeout:
-                self._set_query_timeout(session, timeout)
+                timeout_reset_command = self._set_query_timeout(session, timeout)
                 
             self._track_session(session)
             
@@ -1197,6 +1202,19 @@ class DatabaseEngine:
                 except Exception:
                     success = False
                     raise
+            
+            # Reset timeout BEFORE session cleanup (while session is still valid)
+            # This prevents timeout from leaking to the next session that uses this connection
+            # PostgreSQL statement_timeout is session-level, but we reset explicitly for safety
+            if timeout_reset_command:
+                try:
+                    # Ensure we're not in a failed transaction
+                    if session.is_active and not session.in_nested_transaction():
+                        self._reset_query_timeout(session, timeout_reset_command)
+                        session.flush()  # Ensure reset is committed
+                except Exception:
+                    # Silent fail - timeout reset is best-effort
+                    pass
                     
         except Exception as e:
             # Herhangi bir hatada explicit rollback yap
@@ -1227,6 +1245,19 @@ class DatabaseEngine:
                 except Exception:
                     pass
                 
+                # Reset timeout if not already reset (fallback for error cases)
+                # Only reset if we haven't already reset it in the try block (success case)
+                if timeout_reset_command and not success:
+                    try:
+                        # Try to reset timeout even after error (best effort)
+                        # Rollback first to ensure session is in valid state
+                        if session.is_active:
+                            session.rollback()  # Ensure clean state
+                            self._reset_query_timeout(session, timeout_reset_command)
+                    except Exception:
+                        # Silent fail - timeout reset is best-effort
+                        pass
+                
                 try:
                     session.close()
                 except Exception:
@@ -1239,7 +1270,7 @@ class DatabaseEngine:
                 except Exception:
                     pass
     
-    def _set_query_timeout(self, session: Session, timeout: float) -> None:
+    def _set_query_timeout(self, session: Session, timeout: float) -> Optional[str]:
         """Set query timeout for database-specific implementations.
         
         Performance Optimization:
@@ -1250,9 +1281,12 @@ class DatabaseEngine:
             session: SQLAlchemy session
             timeout: Timeout in seconds
             
+        Returns:
+            Optional[str]: Reset command to restore default timeout (None if not needed)
+            
         Note:
             - PostgreSQL: statement_timeout (milliseconds)
-            - MySQL: max_execution_time (milliseconds)
+            - MySQL: max_execution_time (milliseconds) - SESSION level, auto-resets
             - SQLite: busy_timeout (milliseconds, limited support)
             - Other databases: May not support timeout
         """
@@ -1264,15 +1298,41 @@ class DatabaseEngine:
             
             if db_type == 'postgresql':
                 # PostgreSQL: statement_timeout in milliseconds
+                # 0 means no timeout (default)
                 session.execute(text(f"SET statement_timeout = {milliseconds}"))
+                return "SET statement_timeout = 0"  # Reset to default (no timeout)
             elif db_type == 'mysql':
                 # MySQL: max_execution_time in milliseconds
+                # SESSION level auto-resets, but we'll reset explicitly for safety
                 session.execute(text(f"SET SESSION max_execution_time = {milliseconds}"))
+                return "SET SESSION max_execution_time = 0"  # Reset to default (no timeout)
             elif db_type == 'sqlite':
                 # SQLite: busy_timeout in milliseconds (limited support)
+                # PRAGMA settings persist, so we need to reset
                 session.execute(text(f"PRAGMA busy_timeout = {milliseconds}"))
+                return "PRAGMA busy_timeout = 0"  # Reset to default
+            else:
+                return None
         except Exception:
             # Silent fail - timeout is optional feature
+            return None
+    
+    def _reset_query_timeout(self, session: Session, reset_command: Optional[str]) -> None:
+        """Reset query timeout to default value.
+        
+        This prevents timeout settings from leaking across pooled connections.
+        
+        Args:
+            session: SQLAlchemy session
+            reset_command: SQL command to reset timeout (from _set_query_timeout)
+        """
+        if not reset_command:
+            return
+        
+        try:
+            session.execute(text(reset_command))
+        except Exception:
+            # Silent fail - timeout reset is best-effort
             pass
 
     def health_check(self, use_cache: bool = True) -> dict:
@@ -1427,13 +1487,31 @@ class DatabaseEngine:
                     except AttributeError:
                         overflow = 0
                     
+                    # Calculate pool utilization
+                    total_connections = checked_in + checked_out
+                    utilization_ratio = checked_out / pool_size if pool_size > 0 else 0
+                    
+                    # Pool exhaustion warning threshold (80%)
+                    pool_warning = utilization_ratio >= 0.8 if pool_size > 0 else False
+                    
                     result['pool_info'] = {
                         'type': pool.__class__.__name__,
                         'size': pool_size,
                         'checked_in': checked_in,
                         'checked_out': checked_out,
                         'overflow': overflow,
+                        'total': total_connections,
+                        'utilization_ratio': round(utilization_ratio, 2),
+                        'warning': pool_warning,  # True if >80% of pool is in use
                     }
+                    
+                    # Log warning if pool is near exhaustion
+                    if pool_warning:
+                        logger.warning(
+                            f"Connection pool near exhaustion: {checked_out}/{pool_size} "
+                            f"({utilization_ratio*100:.1f}%) connections in use. "
+                            f"Consider increasing pool_size or investigating connection leaks."
+                        )
             except Exception as e:
                 result['pool_info'] = {'error': str(e)}
             
