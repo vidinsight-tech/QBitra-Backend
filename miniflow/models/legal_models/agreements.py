@@ -30,7 +30,8 @@ class Agreement(Base, TimestampMixin):
     comment="Sözleşme durumu (draft, active, archived, deprecated)")
     
     # ---- Current Version ---- #
-    current_version_id = Column(String(20), ForeignKey("agreement_versions.id", ondelete="SET NULL"), nullable=True,
+    # use_alter=True: Döngüsel FK bağımlılığını çözmek için (Agreement <-> AgreementVersion)
+    current_version_id = Column(String(20), ForeignKey("agreement_versions.id", ondelete="SET NULL", use_alter=True), nullable=True,
     comment="Aktif versiyon id'si")
     
     # ---- Requirements ---- #
