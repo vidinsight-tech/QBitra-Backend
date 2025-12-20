@@ -61,7 +61,7 @@ from miniflow.database.engine import (
     inject_session,
 )
 
-# Repository
+# Repository Base Classes (still in database.repository)
 from miniflow.database.repository import (
     BaseRepository,
     AdvancedRepository,
@@ -69,6 +69,10 @@ from miniflow.database.repository import (
     handle_db_exceptions,
     EAGER_STRATEGIES,
 )
+
+# Repository Implementations (moved to miniflow.repository)
+# NOTE: Import from miniflow.repository directly to avoid circular imports
+# from miniflow.repository import UserRepository, ...
 
 # Models
 from miniflow.database.models import (
@@ -101,12 +105,14 @@ __all__ = [
     "with_retry_session",
     "inject_session",
     
-    # Repository
+    # Repository Base Classes
     "BaseRepository",
     "AdvancedRepository",
     "BulkRepository",
     "handle_db_exceptions",
     "EAGER_STRATEGIES",
+    # NOTE: Repository implementations are in miniflow.repository
+    # Import them directly: from miniflow.repository import UserRepository
     
     # Models - Base
     "Base",
