@@ -33,6 +33,8 @@ class WorkspacePlan(Base, TimestampMixin):
     comment="Maksimum üye sayısı (-1 = sınırsız)")
     max_workflows = Column(Integer, nullable=False,
     comment="Maksimum workflow sayısı (-1 = sınırsız)")
+    max_nodes_per_workflow = Column(Integer, nullable=False,
+    comment="Bir workflow içinde maksimum düğüm sayısı (-1 = sınırsız)")
     max_custom_scripts = Column(Integer, nullable=False,
     comment="Maksimum custom script sayısı (-1 = sınırsız)")
     

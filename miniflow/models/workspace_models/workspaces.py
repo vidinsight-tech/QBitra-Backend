@@ -39,6 +39,8 @@ class Workspace(Base, SoftDeleteMixin, TimestampMixin):
     comment="Üye limiti")
     workflow_limit = Column(Integer, nullable=False,
     comment="Workflow limiti")
+    nodes_per_workflow_limit = Column(Integer, nullable=False,
+    comment="Bir workflow içinde maksimum düğüm limiti")
     custom_script_limit = Column(Integer, nullable=False,
     comment="Custom script limiti")
     storage_limit_mb = Column(Integer, nullable=False,
