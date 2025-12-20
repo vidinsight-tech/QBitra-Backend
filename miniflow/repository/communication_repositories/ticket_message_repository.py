@@ -9,19 +9,19 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.base import BaseRepository, handle_db_exceptions
+from miniflow.models import TicketMessage
 
 
 class TicketMessageRepository(BaseRepository):
     """Ticket mesajları için repository."""
     
     def __init__(self):
-        from miniflow.models import TicketMessage
         super().__init__(TicketMessage)
     
     # =========================================================================
@@ -43,7 +43,9 @@ class TicketMessageRepository(BaseRepository):
     def get_last_message(
         self, 
         session: Session, 
-        ticket_id: str
+        ticket_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> Optional[TicketMessage]:
         """Ticket'ın son mesajını getirir."""
         return session.query(self.model).filter(

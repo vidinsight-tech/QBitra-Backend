@@ -9,23 +9,21 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import ScriptReviewHistory
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import ScriptReviewHistory
 
 
 class ScriptReviewHistoryRepository(AdvancedRepository):
     """Script inceleme geçmişi için repository."""
     
     def __init__(self):
-        from miniflow.models import ScriptReviewHistory
         super().__init__(ScriptReviewHistory)
     
     # =========================================================================
@@ -62,7 +60,9 @@ class ScriptReviewHistoryRepository(AdvancedRepository):
     def get_latest_review(
         self, 
         session: Session, 
-        script_id: str
+        script_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> Optional[ScriptReviewHistory]:
         """Script'in son review'ını getirir."""
         return session.query(self.model).filter(
@@ -107,7 +107,9 @@ class ScriptReviewHistoryRepository(AdvancedRepository):
     def get_urgent_reviews(
         self, 
         session: Session,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[ScriptReviewHistory]:
         """Acil review'ları getirir."""
         return session.query(self.model).filter(
@@ -119,7 +121,9 @@ class ScriptReviewHistoryRepository(AdvancedRepository):
     def get_pending_changes_reviews(
         self, 
         session: Session,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[ScriptReviewHistory]:
         """Değişiklik bekleyen review'ları getirir."""
         return session.query(self.model).filter(
@@ -156,7 +160,7 @@ class ScriptReviewHistoryRepository(AdvancedRepository):
         next_reviews = session.query(self.model).filter(
             self.model.previous_review_id == review_id,
             self.model.is_deleted == False
-        ).order_by(desc(getattr(self.model, order_by)) if order_desc else getattr(self.model, order_by)).all()
+        ).order_by(desc(self.model.created_at)).all()
         reviews.extend(next_reviews)
         
         return reviews

@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import Ticket
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import Ticket
 
 
 class TicketRepository(AdvancedRepository):
     """Destek ticket işlemleri için repository."""
     
     def __init__(self):
-        from miniflow.models import Ticket
         super().__init__(Ticket)
     
     # =========================================================================
@@ -91,7 +89,9 @@ class TicketRepository(AdvancedRepository):
     def get_open_tickets(
         self, 
         session: Session,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "opened_at",
+        order_desc: bool = True
     ) -> List[Ticket]:
         """Açık ticket'ları getirir."""
         from miniflow.models.enums import TicketStatus
@@ -104,7 +104,9 @@ class TicketRepository(AdvancedRepository):
         self, 
         session: Session, 
         user_id: str,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "opened_at",
+        order_desc: bool = True
     ) -> List[Ticket]:
         """Kullanıcının açık ticket'larını getirir."""
         from miniflow.models.enums import TicketStatus

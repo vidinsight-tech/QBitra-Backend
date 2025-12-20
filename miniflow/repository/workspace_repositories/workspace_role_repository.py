@@ -13,17 +13,15 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import WorkspaceRole
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import WorkspaceRole
 
 
 class WorkspaceRoleRepository(AdvancedRepository):
     """Rol yönetimi için repository."""
     
     def __init__(self):
-        from miniflow.models import WorkspaceRole
         super().__init__(WorkspaceRole)
     
     # =========================================================================

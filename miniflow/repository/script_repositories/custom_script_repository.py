@@ -9,12 +9,13 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import CustomScript
 from miniflow.database.repository.base import handle_db_exceptions
 
 from miniflow.models.enums import ScriptApprovalStatus, ScriptTestStatus
@@ -24,7 +25,6 @@ class CustomScriptRepository(AdvancedRepository):
     """Custom script işlemleri için repository."""
     
     def __init__(self):
-        from miniflow.models import CustomScript
         super().__init__(CustomScript)
     
     # =========================================================================

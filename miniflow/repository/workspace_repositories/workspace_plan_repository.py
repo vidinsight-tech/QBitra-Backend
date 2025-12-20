@@ -13,17 +13,15 @@ from typing import TYPE_CHECKING, Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import WorkspacePlan
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import WorkspacePlan
 
 
 class WorkspacePlanRepository(AdvancedRepository):
     """Plan yönetimi için repository."""
     
     def __init__(self):
-        from miniflow.models import WorkspacePlan
         super().__init__(WorkspacePlan)
     
     # =========================================================================

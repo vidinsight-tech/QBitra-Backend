@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.bulk import BulkRepository
+from miniflow.models import AuditLog
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import AuditLog
 
 
 class AuditLogRepository(BulkRepository):
     """Denetim kayıtları için repository."""
     
     def __init__(self):
-        from miniflow.models import AuditLog
         super().__init__(AuditLog)
     
     # =========================================================================
@@ -118,7 +116,9 @@ class AuditLogRepository(BulkRepository):
         session: Session, 
         workspace_id: str,
         hours: int = 24,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[AuditLog]:
         """Son X saatin audit loglarını getirir."""
         since = datetime.now(timezone.utc) - timedelta(hours=hours)

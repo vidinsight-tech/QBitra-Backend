@@ -9,23 +9,21 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import Variable
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import Variable
 
 
 class VariableRepository(AdvancedRepository):
     """Değişken işlemleri için repository."""
     
     def __init__(self):
-        from miniflow.models import Variable
         super().__init__(Variable)
     
     # =========================================================================

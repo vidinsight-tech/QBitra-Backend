@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import WorkspaceMember
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import WorkspaceMember
 
 
 class WorkspaceMemberRepository(AdvancedRepository):
     """Üyelik yönetimi için repository."""
     
     def __init__(self):
-        from miniflow.models import WorkspaceMember
         super().__init__(WorkspaceMember)
     
     # =========================================================================
@@ -65,7 +63,9 @@ class WorkspaceMemberRepository(AdvancedRepository):
     def get_owned_workspaces_by_user_id(
         self, 
         session: Session, 
-        user_id: str
+        user_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[WorkspaceMember]:
         """Kullanıcının sahip olduğu workspace'leri getirir."""
         return session.query(self.model).filter(
@@ -78,7 +78,9 @@ class WorkspaceMemberRepository(AdvancedRepository):
     def get_memberships_by_user_id(
         self, 
         session: Session, 
-        user_id: str
+        user_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[WorkspaceMember]:
         """Kullanıcının üyeliklerini getirir (owner hariç)."""
         return session.query(self.model).filter(

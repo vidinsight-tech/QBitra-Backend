@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import CrashLog
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import CrashLog
 
 
 class CrashLogRepository(AdvancedRepository):
     """Hata kayıtları için repository."""
     
     def __init__(self):
-        from miniflow.models import CrashLog
         super().__init__(CrashLog)
     
     # =========================================================================
@@ -103,7 +101,9 @@ class CrashLogRepository(AdvancedRepository):
     def get_unresolved_crashes(
         self, 
         session: Session,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[CrashLog]:
         """Çözülmemiş crash loglarını getirir."""
         return session.query(self.model).filter(
@@ -114,7 +114,9 @@ class CrashLogRepository(AdvancedRepository):
     def get_critical_crashes(
         self, 
         session: Session,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[CrashLog]:
         """Kritik crash loglarını getirir."""
         from miniflow.models.enums import CrashSeverity

@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import UserAgreementAcceptance
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import UserAgreementAcceptance
 
 
 class UserAgreementAcceptanceRepository(AdvancedRepository):
     """Kullanıcı sözleşme kabulleri için repository."""
     
     def __init__(self):
-        from miniflow.models import UserAgreementAcceptance
         super().__init__(UserAgreementAcceptance)
     
     # =========================================================================
@@ -48,7 +46,9 @@ class UserAgreementAcceptanceRepository(AdvancedRepository):
     def get_active_by_user_id(
         self, 
         session: Session, 
-        user_id: str
+        user_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[UserAgreementAcceptance]:
         """Kullanıcının aktif kabullerini getirir (liste)."""
         return session.query(self.model).filter(

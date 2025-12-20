@@ -9,20 +9,21 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.base import BaseRepository, handle_db_exceptions
+from miniflow.models import SystemSetting
+
 
 
 class SystemSettingRepository(BaseRepository):
     """Sistem ayarları için repository."""
     
     def __init__(self):
-        from miniflow.models import SystemSetting
         super().__init__(SystemSetting)
     
     # =========================================================================
@@ -116,7 +117,6 @@ class SystemSettingRepository(BaseRepository):
             if description:
                 setting.description = description
         else:
-            from miniflow.models import SystemSetting
             setting = SystemSetting(
                 key=key,
                 value=value,

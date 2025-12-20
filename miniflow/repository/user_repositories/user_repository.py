@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.bulk import BulkRepository
+from miniflow.models import User
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import User
 
 
 class UserRepository(BulkRepository):
     """Kullanıcı işlemleri için repository."""
     
     def __init__(self):
-        from miniflow.models import User
         super().__init__(User)
         self._model_class = User
     

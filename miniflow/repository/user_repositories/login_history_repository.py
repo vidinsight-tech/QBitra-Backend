@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import LoginHistory
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import LoginHistory
 
 
 class LoginHistoryRepository(AdvancedRepository):
     """Giriş geçmişi için repository."""
     
     def __init__(self):
-        from miniflow.models import LoginHistory
         super().__init__(LoginHistory)
     
     # =========================================================================

@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import AuthSession
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import AuthSession
 
 
 class AuthSessionRepository(AdvancedRepository):
     """Oturum yönetimi için repository."""
     
     def __init__(self):
-        from miniflow.models import AuthSession
         super().__init__(AuthSession)
     
     # =========================================================================
@@ -68,7 +66,13 @@ class AuthSessionRepository(AdvancedRepository):
     # =========================================================================
     
     @handle_db_exceptions
-    def revoke_oldest_session(self, session: Session, user_id: str) -> Optional[AuthSession]:
+    def revoke_oldest_session(
+        self, 
+        session: Session, 
+        user_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = False
+    ) -> Optional[AuthSession]:
         """En eski session'ı iptal eder."""
         oldest = session.query(self.model).filter(
             self.model.user_id == user_id,

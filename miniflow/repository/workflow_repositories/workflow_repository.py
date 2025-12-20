@@ -9,23 +9,21 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.bulk import BulkRepository
+from miniflow.models import Workflow
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import Workflow
 
 
 class WorkflowRepository(BulkRepository):
     """Workflow işlemleri için repository."""
     
     def __init__(self):
-        from miniflow.models import Workflow
         super().__init__(Workflow)
     
     # =========================================================================
@@ -84,7 +82,9 @@ class WorkflowRepository(BulkRepository):
     def get_active_workflows(
         self, 
         session: Session, 
-        workspace_id: str
+        workspace_id: str,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[Workflow]:
         """Aktif workflow'ları getirir."""
         return session.query(self.model).filter(

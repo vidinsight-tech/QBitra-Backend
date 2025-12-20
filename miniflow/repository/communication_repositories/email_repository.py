@@ -9,24 +9,22 @@ Kullanım:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from miniflow.database.repository.advanced import AdvancedRepository
+from miniflow.models import Email
 from miniflow.database.repository.base import handle_db_exceptions
 
-if TYPE_CHECKING:
-    from miniflow.models import Email
 
 
 class EmailRepository(AdvancedRepository):
     """E-posta işlemleri için repository."""
     
     def __init__(self):
-        from miniflow.models import Email
         super().__init__(Email)
     
     # =========================================================================
@@ -95,7 +93,9 @@ class EmailRepository(AdvancedRepository):
         self, 
         session: Session,
         max_retry_count: int = 3,
-        limit: int = 100
+        limit: int = 100,
+        order_by: Optional[str] = "created_at",
+        order_desc: bool = True
     ) -> List[Email]:
         """Tekrar denenebilecek başarısız e-postaları getirir."""
         return session.query(self.model).filter(
